@@ -29,16 +29,27 @@ def gen_secrets(channels: list[int]) -> bytes:
 
     :returns: Contents of the secrets file
     """
-    # TODO: Update this function to generate any system-wide secrets needed by
-    #   your design
+    # Step 1: Generate secret keys used to encrypt frames for each channel
+    # Use AES-256-GCM in the provided WolfSSL
 
-    # Create the secrets object
-    # You can change this to generate any secret material
-    # The secrets file will never be shared with attackers
-    secrets = {
-        "channels": channels,
-        "some_secrets": "EXAMPLE",
-    }
+    # Step 2: Generate secret keys to encrypt the subscription.bin file
+
+    # Step 3: Generate the public/private key-pair used to sign each 
+    # frame so that the decoder can verify the frames originated from
+    # our encoder
+
+
+    # Step 4: Integrate all secrets into a single file
+    secrets = [
+        "channel_keys": [
+            {
+                "channel": 0,
+                "secret": "blahblah",
+            }
+        ],
+        "subscription_key": "blahblah",
+        "signature_public_key": "blahblah"
+    ]
 
     # NOTE: if you choose to use JSON for your file type, you will not be able to
     # store binary data, and must either use a different file type or encode the
