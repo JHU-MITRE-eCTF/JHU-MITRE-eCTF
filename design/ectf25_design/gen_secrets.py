@@ -55,18 +55,14 @@ def gen_secrets(channels: list[int]) -> bytes:
 
 
     # Step 4: Integrate all secrets into a single file
-    """
-    secrets = [
-        "channel_keys": [
-            {
-                "channel": 0,
-                "secret": "blahblah",
-            }
-        ],
-        "subscription_key": "blahblah",
-        "signature_public_key": "blahblah"
-    ]
-"""
+    secrets = {
+        "channel_keys": channel_keys,
+        "subscription_key": "subscription key goes here",
+        "signature_public_key": "signature public key goes here",
+    }
+    
+    # Step 5: Return the secrets as a JSON-encoded byte string
+
     # NOTE: if you choose to use JSON for your file type, you will not be able to
     # store binary data, and must either use a different file type or encode the
     # binary data to hex, base64, or another type of ASCII-only encoding
