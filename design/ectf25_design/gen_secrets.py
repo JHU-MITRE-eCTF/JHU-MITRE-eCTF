@@ -57,7 +57,7 @@ def gen_secrets(channels: list[int]) -> bytes:
     # Step 4: Integrate all secrets into a single file
     secrets = {
         "channel_keys": channel_keys,
-        "subscription_key": "subscription key goes here",
+        "subscription_key": subscription_key,
         "signature_public_key": "signature public key goes here",
     }
     
