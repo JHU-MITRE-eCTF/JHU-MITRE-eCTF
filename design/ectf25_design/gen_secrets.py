@@ -13,9 +13,14 @@ Copyright: Copyright (c) 2025 The MITRE Corporation
 import argparse
 import json
 from pathlib import Path
+import secrets
 
 from loguru import logger
 
+#Liz - Adding a function to generate private 256-bit AES keys.
+def gen_aes_key():
+    key = secrets.token_bytes(32)
+    return key.hex()
 
 def gen_secrets(channels: list[int]) -> bytes:
     """Generate the contents secrets file
@@ -31,15 +36,20 @@ def gen_secrets(channels: list[int]) -> bytes:
     """
     # Step 1: Generate secret keys used to encrypt frames for each channel
     # Use AES-256-GCM in the provided WolfSSL
+    #Liz Grzyb
+    channel_keys = [{"channel": ch, "secret": gen_aes_key()} for ch in channels]
 
     # Step 2: Generate secret keys to encrypt the subscription.bin file
+    #Yi He
 
     # Step 3: Generate the public/private key-pair used to sign each 
     # frame so that the decoder can verify the frames originated from
-    # our encoder
+    # our encoder and subscription updates
+    #Seonuk Kim
 
 
     # Step 4: Integrate all secrets into a single file
+    """
     secrets = [
         "channel_keys": [
             {
@@ -50,7 +60,7 @@ def gen_secrets(channels: list[int]) -> bytes:
         "subscription_key": "blahblah",
         "signature_public_key": "blahblah"
     ]
-
+"""
     # NOTE: if you choose to use JSON for your file type, you will not be able to
     # store binary data, and must either use a different file type or encode the
     # binary data to hex, base64, or another type of ASCII-only encoding
