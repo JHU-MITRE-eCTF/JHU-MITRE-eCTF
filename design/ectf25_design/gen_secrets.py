@@ -22,6 +22,11 @@ def gen_aes_key():
     key = secrets.token_bytes(32)
     return key.hex()
 
+#Yi - generate subscription key 
+def gen_subscription_key() -> str:
+    hex_key = gen_aes_key()
+    return hex_key 
+
 def gen_secrets(channels: list[int]) -> bytes:
     """Generate the contents secrets file
 
@@ -41,6 +46,7 @@ def gen_secrets(channels: list[int]) -> bytes:
 
     # Step 2: Generate secret keys to encrypt the subscription.bin file
     #Yi He
+    subscription_key = gen_subscription_key()
 
     # Step 3: Generate the public/private key-pair used to sign each 
     # frame so that the decoder can verify the frames originated from
