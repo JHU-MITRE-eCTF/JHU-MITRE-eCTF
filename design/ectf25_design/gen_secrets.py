@@ -13,9 +13,20 @@ Copyright: Copyright (c) 2025 The MITRE Corporation
 import argparse
 import json
 from pathlib import Path
+import secrets
+from nacl.signing import SigningKey # TODO: Discuss alternatives - cryptography (HazMat), pure25519, PyCryptodome, all require installation (pip install --)
 
 from loguru import logger
 
+#Liz - Adding a function to generate private 256-bit AES keys.
+def gen_aes_key():
+    key = secrets.token_bytes(32)
+    return key.hex()
+
+#Yi - generate subscription key 
+def gen_subscription_key() -> str:
+    hex_key = gen_aes_key()
+    return hex_key 
 
 def gen_secrets(channels: list[int]) -> bytes:
     """Generate the contents secrets file
@@ -29,20 +40,29 @@ def gen_secrets(channels: list[int]) -> bytes:
 
     :returns: Contents of the secrets file
     """
-    # TODO: Update this function to generate any system-wide secrets needed by
-    #   your design
+    # Step 1: Generate secret keys used to encrypt frames for each channel
+    # Use AES-256-GCM in the provided WolfSSL
+    channel_keys = [{"channel": ch, "secret": gen_aes_key()} for ch in channels]
 
-    # Create the secrets object
-    # You can change this to generate any secret material
-    # The secrets file will never be shared with attackers
+    # Step 2: Generate secret keys to encrypt the subscription.bin file
+    subscription_key = gen_subscription_key()
+
+    # Step 3: Generate the public/private key-pair used to sign each 
+    # frame so that the decoder can verify the frames originated from
+    # our encoder and subscription updates
+    signing_key = SigningKey.generate()
+    signing_key_bytes = signing_key.encode()
+    verify_key_bytes = signing_key.verify_key.encode() # i.e. the public key
+
+    # Step 4: Integrate all secrets into a single file
     secrets = {
-        "channels": channels,
-        "some_secrets": "EXAMPLE",
+        "channel_keys": channel_keys,
+        "subscription_key": subscription_key,
+        "signature_private_key": signing_key_bytes.hex(),   # To undo, use bytes(bytearray.fromhex(singing_key_bytes_hex))
+        "signature_public_key": verify_key_bytes.hex(),
     }
-
-    # NOTE: if you choose to use JSON for your file type, you will not be able to
-    # store binary data, and must either use a different file type or encode the
-    # binary data to hex, base64, or another type of ASCII-only encoding
+    
+    # Step 5: Return the secrets as a JSON-encoded byte string
     return json.dumps(secrets).encode()
 
 
