@@ -17,6 +17,7 @@ import struct
 
 from loguru import logger
 
+from Crypto.Cipher import AES
 
 def gen_subscription(
     secrets: bytes, device_id: int, start: int, end: int, channel: int
@@ -36,12 +37,10 @@ def gen_subscription(
 
     # Pack the subscription. This will be sent to the decoder with ectf25.tv.subscribe
     ret = struct.pack("<QQQQ", device_id, start, end, channel)
-    for m in secrets['channel_keys']:
-        if m['ch'] == channel:
-            ret += m['secret']
+    ret += secrets["channel_keys"][channel].encode()
 
-    # Todo: encrypt bytes with secrets['subscription_key']
-    return ret
+    cipher = AES.new(secrets["subscription_key"].encode(), AES.MODE_ECB)
+    return cipher.encrypt(ret)
 
 
 def parse_args():
