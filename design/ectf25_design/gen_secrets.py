@@ -14,8 +14,7 @@ import argparse
 import json
 from pathlib import Path
 import secrets
-from nacl.signing import SigningKey # TODO: Discuss alternatives - cryptography (HazMat), pure25519, PyCryptodome, all require installation (pip install --)
-
+from Crypto.PublicKey import ECC
 from loguru import logger
 
 #Liz - Adding a function to generate private 256-bit AES keys.
@@ -42,7 +41,7 @@ def gen_secrets(channels: list[int]) -> bytes:
     """
     # Step 1: Generate secret keys used to encrypt frames for each channel
     # Use AES-256-GCM in the provided WolfSSL
-    channel_keys = [{"channel": ch, "secret": gen_aes_key()} for ch in channels]
+    channel_keys = [{ch: gen_aes_key()} for ch in channels]
 
     # Step 2: Generate secret keys to encrypt the subscription.bin file
     subscription_key = gen_subscription_key()
@@ -50,16 +49,17 @@ def gen_secrets(channels: list[int]) -> bytes:
     # Step 3: Generate the public/private key-pair used to sign each 
     # frame so that the decoder can verify the frames originated from
     # our encoder and subscription updates
-    signing_key = SigningKey.generate()
-    signing_key_bytes = signing_key.encode()
-    verify_key_bytes = signing_key.verify_key.encode() # i.e. the public key
+    # Reference: https://pycryptodome.readthedocs.io/en/latest/src/public_key/ecc.html#Crypto.PublicKey.ECC.EccKey
+    ecc_key = ECC.generate(curve="Ed25519")
+    ecc_private_key = ecc_key.seed
+    ecc_public_key = ecc_key.public_key().export_key(format="raw")
 
     # Step 4: Integrate all secrets into a single file
     secrets = {
         "channel_keys": channel_keys,
-        "subscription_key": subscription_key,
-        "signature_private_key": signing_key_bytes.hex(),   # To undo, use bytes(bytearray.fromhex(singing_key_bytes_hex))
-        "signature_public_key": verify_key_bytes.hex(),
+        "subscription_key": subscription_key,  
+        "signature_private_key": ecc_private_key.hex(),
+        "signature_public_key": ecc_public_key.hex(),  # To undo, use bytes(bytearray.fromhex(signing_key_bytes_hex))
     }
     
     # Step 5: Return the secrets as a JSON-encoded byte string

@@ -29,9 +29,9 @@ class Encoder:
         # Load the json of the secrets file
         secrets = json.loads(secrets)
 
-        # Load the example secrets for use in Encoder.encode
-        # This will be "EXAMPLE" in the reference design"
-        self.some_secrets = secrets["some_secrets"]
+        self.channel_keys = secrets["channel_keys"]
+        self.sub_key = secrets["subscription_key"]
+        self.sign_key_private = secrets["signature_private_key"]
 
     def encode(self, channel: int, frame: bytes, timestamp: int) -> bytes:
         """The frame encoder function
@@ -53,6 +53,8 @@ class Encoder:
         """
         # TODO: encode the satellite frames so that they meet functional and
         #  security requirements
+
+        # Step 1: 
 
         return struct.pack("<IQ", channel, timestamp) + frame
 
