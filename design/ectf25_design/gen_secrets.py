@@ -41,7 +41,7 @@ def gen_secrets(channels: list[int]) -> bytes:
     """
     # Step 1: Generate secret keys used to encrypt frames for each channel
     # Use AES-256-GCM in the provided WolfSSL
-    channel_keys = [{ch: gen_aes_key()} for ch in channels]
+    channel_keys = {ch: gen_aes_key() for ch in channels}
 
     # Step 2: Generate secret keys to encrypt the subscription.bin file
     subscription_key = gen_subscription_key()
