@@ -10,10 +10,15 @@ own risk!
 Copyright: Copyright (c) 2025 The MITRE Corporation
 """
 
+
 import argparse
 import struct
 import json
+from Crypto.Cipher import AES
+from Crypto.PublicKey import ECC
+from Crypto.Signature import eddsa
 
+DEBUG_MODE = True
 
 class Encoder:
     def __init__(self, secrets: bytes):
@@ -54,7 +59,26 @@ class Encoder:
         # TODO: encode the satellite frames so that they meet functional and
         #  security requirements
 
-        # Step 1: 
+        # Combine the channel/timestamp + frame
+        # Ensure that the channel/timestamp metadata are padded to be 10 bytes
+        # 16 bits - channel num; 64 bits - timestamp
+        payload = struct.pack("<IQ", channel, timestamp) + frame
+        if DEBUG_MODE:
+            print(payload)
+            print(len(struct.pack("<IQ", channel, timestamp)))
+
+        # Encrypt payload using AES-256-GCM
+        encrypt_key = self.channel_keys[str(channel)]
+        assert len(encrypt_key) == 16
+
+        cipher = AES.new(encrypt_key, AES.MODE_GCM)
+        encrypted_payload = cipher.encrypt(payload)
+
+        # Sign payload using ED25519
+        sign_key = ECC.import_key(self.sign_key_private)
+        signer = eddsa.new(sign_key, 'rfc8032')     # https://datatracker.ietf.org/doc/html/rfc8032#section-3.2
+        signature = signer.sign(encrypted_payload)
+
 
         return struct.pack("<IQ", channel, timestamp) + frame
 
