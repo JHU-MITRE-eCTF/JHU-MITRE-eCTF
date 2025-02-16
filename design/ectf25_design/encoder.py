@@ -10,10 +10,15 @@ own risk!
 Copyright: Copyright (c) 2025 The MITRE Corporation
 """
 
+
 import argparse
 import struct
 import json
+from Crypto.Cipher import AES
+from Crypto.PublicKey import ECC
+from Crypto.Signature import eddsa
 
+DEBUG_MODE = True
 
 class Encoder:
     def __init__(self, secrets: bytes):
@@ -51,12 +56,33 @@ class Encoder:
 
         :returns: The encoded frame, which will be sent to the Decoder
         """
-        # TODO: encode the satellite frames so that they meet functional and
-        #  security requirements
+        # Combine the channel/timestamp + frame
+        # Ensure that the channel/timestamp metadata are padded to be 10 bytes
+        # 16 bits - channel num; 64 bits - timestamp
+        # TODO: Pad the frame to be up to 64 bytes, so payload is struct.pack("<IQ64s", channel, timestamp, frame)
+        payload = struct.pack("<IQ", channel, timestamp) + frame
+        if DEBUG_MODE:
+            print(payload)
+            print(len(struct.pack("<IQ", channel, timestamp)))
 
-        # Step 1: 
+        # Encrypt payload using AES-256-GCM
+        encrypt_key = self.channel_keys[str(channel)]
+        encrypt_key = bytes(bytearray.fromhex(encrypt_key))
+        assert len(encrypt_key) == 32
 
-        return struct.pack("<IQ", channel, timestamp) + frame
+        # Encrypted payload should be 74 bytes (64 bytes from frame, 8 bytes from timestamp, 2 bytes for channel num)
+        cipher = AES.new(encrypt_key, AES.MODE_GCM)
+        encrypted_payload = cipher.encrypt(payload)
+
+        # Sign payload using ED25519
+        signing_key = bytes(bytearray.fromhex(self.sign_key_private))
+        signing_key = eddsa.import_private_key(signing_key)
+        signer = eddsa.new(signing_key, 'rfc8032')     # https://datatracker.ietf.org/doc/html/rfc8032#section-3.2
+
+        # Signature should be 64 bytes long (!!)
+        signature = signer.sign(encrypted_payload)
+
+        return encrypted_payload + signature
 
 
 def main():
