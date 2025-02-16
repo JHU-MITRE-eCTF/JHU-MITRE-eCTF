@@ -56,12 +56,10 @@ class Encoder:
 
         :returns: The encoded frame, which will be sent to the Decoder
         """
-        # TODO: encode the satellite frames so that they meet functional and
-        #  security requirements
-
         # Combine the channel/timestamp + frame
         # Ensure that the channel/timestamp metadata are padded to be 10 bytes
         # 16 bits - channel num; 64 bits - timestamp
+        # TODO: Pad the frame to be up to 64 bytes, so payload is struct.pack("<IQ64s", channel, timestamp, frame)
         payload = struct.pack("<IQ", channel, timestamp) + frame
         if DEBUG_MODE:
             print(payload)
@@ -69,18 +67,22 @@ class Encoder:
 
         # Encrypt payload using AES-256-GCM
         encrypt_key = self.channel_keys[str(channel)]
-        assert len(encrypt_key) == 16
+        encrypt_key = bytes(bytearray.fromhex(encrypt_key))
+        assert len(encrypt_key) == 32
 
+        # Encrypted payload should be 74 bytes (64 bytes from frame, 8 bytes from timestamp, 2 bytes for channel num)
         cipher = AES.new(encrypt_key, AES.MODE_GCM)
         encrypted_payload = cipher.encrypt(payload)
 
         # Sign payload using ED25519
-        sign_key = ECC.import_key(self.sign_key_private)
-        signer = eddsa.new(sign_key, 'rfc8032')     # https://datatracker.ietf.org/doc/html/rfc8032#section-3.2
+        signing_key = bytes(bytearray.fromhex(self.sign_key_private))
+        signing_key = eddsa.import_private_key(signing_key)
+        signer = eddsa.new(signing_key, 'rfc8032')     # https://datatracker.ietf.org/doc/html/rfc8032#section-3.2
+
+        # Signature should be 64 bytes long (!!)
         signature = signer.sign(encrypted_payload)
 
-
-        return struct.pack("<IQ", channel, timestamp) + frame
+        return encrypted_payload + signature
 
 
 def main():
