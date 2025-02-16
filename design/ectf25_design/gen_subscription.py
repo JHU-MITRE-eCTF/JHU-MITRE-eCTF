@@ -37,9 +37,9 @@ def gen_subscription(
 
     # Pack the subscription. This will be sent to the decoder with ectf25.tv.subscribe
     ret = struct.pack("<QQQQ", device_id, start, end, channel)
-    ret += secrets["channel_keys"][channel].encode()
+    ret += secrets["channel_keys"][str(channel)].encode()
 
-    cipher = AES.new(secrets["subscription_key"].encode(), AES.MODE_ECB)
+    cipher = AES.new(bytes.fromhex(secrets["subscription_key"]), AES.MODE_ECB)
     return cipher.encrypt(ret)
 
 
