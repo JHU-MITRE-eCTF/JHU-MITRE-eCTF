@@ -16,6 +16,7 @@ import struct
 import json
 from Crypto.Cipher import AES
 from Crypto.Signature import eddsa
+from gen_secrets import load_secret
 
 DEBUG_MODE = True
 
@@ -30,12 +31,12 @@ class Encoder:
         # TODO: parse your secrets data here and run any necessary pre-processing to
         #   improve the throughput of Encoder.encode
 
-        # Load the json of the secrets file
-        secrets = json.loads(secrets)
+        secrets = load_secret(secrets)
 
         self.channel_keys = secrets["channel_keys"]
         self.sub_key = secrets["subscription_key"]
         self.sign_key_private = secrets["signature_private_key"]
+        
 
     def pad_bytes(self, frame: bytes, max_width: int) -> bytes:
         """Pads the frame to the max_width number of bytes.
@@ -95,7 +96,7 @@ class Encoder:
             print(len(struct.pack("<IQ", channel, timestamp)))
 
         # Encrypt payload using AES-256-GCM
-        encrypt_key = self.channel_keys[str(channel)]
+        encrypt_key = self.channel_keys[channel]
         encrypt_key = bytes(bytearray.fromhex(encrypt_key))
         assert len(encrypt_key) == 32
 
@@ -131,6 +132,7 @@ def main():
     parser.add_argument("channel", type=int, help="Channel to encode for")
     parser.add_argument("frame", help="Contents of the frame")
     parser.add_argument("timestamp", type=int, help="64b timestamp to use")
+
     args = parser.parse_args()
 
     encoder = Encoder(args.secrets_file.read())
@@ -139,3 +141,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

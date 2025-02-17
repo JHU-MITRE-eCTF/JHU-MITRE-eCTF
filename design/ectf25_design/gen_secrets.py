@@ -44,6 +44,31 @@ def gen_public_private_key_pair() -> tuple[bytes, bytes]:
     ecc_public_key = ecc_key.public_key().export_key(format="raw")
     return ecc_public_key, ecc_private_key
 
+
+def load_secret(secrets_bytes: bytes) -> dict:
+    """ Load the secrets from the secrets binary
+    
+        :param secrets: Path to the secrets file
+        :returns: Dictionary of the secrets
+            {
+                "subscription_key": subscription_key,
+                "signature_public_key": ecc_public_key,
+                "channel_keys": [CH1_KEY, CH2_KEY, ...],
+                "signature_private_key": ecc_private_key,
+            }
+    """
+    # calculate the number of channel keys
+    channel_key_num = len(secrets_bytes) // 32 - 3
+    subscription_key, ecc_public_key, *channel_keys_tuple, ecc_private_key \
+        = struct.unpack(f"<32s32s{channel_key_num * '32s'}32s", secrets_bytes)
+    return {
+        "subscription_key": subscription_key,
+        "signature_public_key": ecc_public_key,
+        "channel_keys": channel_keys_tuple,
+        "signature_private_key": ecc_private_key,
+    }
+
+
 def gen_secrets(channels: list[int]) -> bytes:
     """Generate the contents secrets file
 
