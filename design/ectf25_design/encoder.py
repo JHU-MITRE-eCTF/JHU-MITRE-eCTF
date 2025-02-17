@@ -112,9 +112,10 @@ class Encoder:
         # Signature should be 64 bytes long (!!)
         signature = signer.sign(encrypted_payload)
 
-        # Use the first 8 bytes of the signature so we don't transmit all 64 bytes,
-        # which would double the traffic we broadcast!
-        return encrypted_payload + signature[:8]
+        # Current implementation uses all 64 bytes, meaning we would be
+        # doubling the traffic. May need to consider using first/last x bytes
+        # going forward!
+        return encrypted_payload + signature
 
 
 def main():
