@@ -13,19 +13,36 @@ Copyright: Copyright (c) 2025 The MITRE Corporation
 import argparse
 import json
 from pathlib import Path
+import struct
 import secrets
 from Crypto.PublicKey import ECC
 from loguru import logger
 
 #Liz - Adding a function to generate private 256-bit AES keys.
-def gen_aes_key():
+def gen_aes_key() -> bytes:
     key = secrets.token_bytes(32)
-    return key.hex()
+    return key
 
 #Yi - generate subscription key 
-def gen_subscription_key() -> str:
-    hex_key = gen_aes_key()
-    return hex_key 
+def gen_subscription_key() -> bytes:
+    return gen_aes_key()
+
+def gen_channel_keys(channels: list[int]) -> tuple[bytes]:
+    """Zhong - Generate the keys for each channel"""
+    return (gen_aes_key() for _ in channels)
+
+def gen_public_private_key_pair() -> tuple[bytes, bytes]:
+    """ Generate the public/private key-pair 
+        used to sign each frame so that the decoder can verify the frames originated from
+        our encoder and subscription updates
+        Reference: https://pycryptodome.readthedocs.io/en/latest/src/public_key/ecc.html#Crypto.PublicKey.ECC.EccKey
+        
+    :returns: Tuple of (public_key, private_key)
+    """
+    ecc_key = ECC.generate(curve="Ed25519")
+    ecc_private_key = ecc_key.seed
+    ecc_public_key = ecc_key.public_key().export_key(format="raw")
+    return ecc_public_key, ecc_private_key
 
 def gen_secrets(channels: list[int]) -> bytes:
     """Generate the contents secrets file
@@ -38,33 +55,31 @@ def gen_secrets(channels: list[int]) -> bytes:
         NOT be included in this list
 
     :returns: Contents of the secrets file
+        :rtype: bytes
+        :format specification for secrets.bin:
+            32 bytes: subscription_key
+            32 bytes: ecc_public_key
+            32 bytes: channel_key_0
+            32 bytes: channel_key_1
+            32 bytes: channel_key_2
+            32 bytes: channel_key_3
+            32 bytes: channel_key_4
+            32 bytes: ecc_private_key
+        
     """
-    # Step 1: Generate secret keys used to encrypt frames for each channel
+    # Generate secret keys used to encrypt frames for each channel
     # Use AES-256-GCM in the provided WolfSSL
-    channel_keys = {ch: gen_aes_key() for ch in channels}
-
-    # Step 2: Generate secret keys to encrypt the subscription.bin file
+    channel_keys_tuple = gen_channel_keys(channels)
+    #  Generate subscription key to encrypt the subscription.bin file
     subscription_key = gen_subscription_key()
+    # Generate the public/private key-pair used to sign each
+    ecc_public_key, ecc_private_key = gen_public_private_key_pair()
 
-    # Step 3: Generate the public/private key-pair used to sign each 
-    # frame so that the decoder can verify the frames originated from
-    # our encoder and subscription updates
-    # Reference: https://pycryptodome.readthedocs.io/en/latest/src/public_key/ecc.html#Crypto.PublicKey.ECC.EccKey
-    ecc_key = ECC.generate(curve="Ed25519")
-    ecc_private_key = ecc_key.seed
-    ecc_public_key = ecc_key.public_key().export_key(format="raw")
-
-    # Step 4: Integrate all secrets into a single file
-    secrets = {
-        "channel_keys": channel_keys,
-        "subscription_key": subscription_key,  
-        "signature_private_key": ecc_private_key.hex(),
-        "signature_public_key": ecc_public_key.hex(),  # To undo, use bytes(bytearray.fromhex(signing_key_bytes_hex))
-    }
+    # Pack secrets into secrets.bin following the format specification
+    secrets_pack = struct.pack(f"<32s32s{len(channels) * '32s'}32s", \
+        subscription_key, ecc_public_key, *channel_keys_tuple, ecc_private_key)
     
-    # Step 5: Return the secrets as a JSON-encoded byte string
-    return json.dumps(secrets).encode()
-
+    return secrets_pack
 
 def parse_args():
     """Define and parse the command line arguments
@@ -107,7 +122,7 @@ def main():
     # Attackers will NOT have access to the output of this, but feel free to remove
     #
     # NOTE: Printing sensitive data is generally not good security practice
-    logger.debug(f"Generated secrets: {secrets}")
+    logger.debug(f"Generated secrets: {secrets}; length: {len(secrets)}")
 
     # Open the file, erroring if the file exists unless the --force arg is provided
     with open(args.secrets_file, "wb" if args.force else "xb") as f:
