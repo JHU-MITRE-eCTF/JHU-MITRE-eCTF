@@ -15,7 +15,6 @@ import argparse
 import struct
 import json
 from Crypto.Cipher import AES
-from Crypto.PublicKey import ECC
 from Crypto.Signature import eddsa
 
 DEBUG_MODE = True
@@ -37,6 +36,36 @@ class Encoder:
         self.channel_keys = secrets["channel_keys"]
         self.sub_key = secrets["subscription_key"]
         self.sign_key_private = secrets["signature_private_key"]
+
+    def pad_bytes(self, frame: bytes, max_width: int) -> bytes:
+        """Pads the frame to the max_width number of bytes.
+        Rather than using null bytes (\0), which may be problematic
+        if the frame contains legitimate null bytes in the final 
+        x bytes, pad the frame with the number of bytes padded.
+        Example: For a 60-byte frame, we would pad the last 4 bytes 
+        with the bytevalue of 4 (\x04).
+
+        This ensures that all frames have a size of 64 bytes
+        to prevent leakage of the length of the data being
+        transmitted over the air from the uplink/satellite systems.
+
+        :param frame: Bytestring of <= 64 bytes
+        :param max_width: Length that the fame should be padded to
+
+        :returns: The padded frame, which will be encoded by encode()
+        """
+        # Check that the frame length is less than max_width
+        if len(frame) == max_width:
+            return frame
+
+        num_padded_bytes = max_width - len(frame)
+        if DEBUG_MODE:
+            print(f'Length of frame: {len(frame)}. Need {num_padded_bytes} bytes of padding.')
+        
+        for i in range(num_padded_bytes):
+            frame += bytes([ord(chr(num_padded_bytes))])
+        
+        return frame
 
     def encode(self, channel: int, frame: bytes, timestamp: int) -> bytes:
         """The frame encoder function
@@ -60,7 +89,7 @@ class Encoder:
         # Ensure that the channel/timestamp metadata are padded to be 10 bytes
         # 16 bits - channel num; 64 bits - timestamp
         # TODO: Pad the frame to be up to 64 bytes, so payload is struct.pack("<IQ64s", channel, timestamp, frame)
-        payload = struct.pack("<IQ", channel, timestamp) + frame
+        payload = struct.pack("<IQ", channel, timestamp) + self.pad_bytes(frame, 64)
         if DEBUG_MODE:
             print(payload)
             print(len(struct.pack("<IQ", channel, timestamp)))
@@ -82,7 +111,9 @@ class Encoder:
         # Signature should be 64 bytes long (!!)
         signature = signer.sign(encrypted_payload)
 
-        return encrypted_payload + signature
+        # Use the first 8 bytes of the signature so we don't transmit all 64 bytes,
+        # which would double the traffic we broadcast!
+        return encrypted_payload + signature[:8]
 
 
 def main():
