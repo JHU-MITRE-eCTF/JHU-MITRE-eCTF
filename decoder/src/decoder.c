@@ -475,12 +475,28 @@ int main(void) {
         // Handle decode command
         case DECODE_MSG:
             STATUS_LED_PURPLE();
+
+            int authenticate = authenticate();
+            if (authenticate != 0) {
+                STATUS_LED_ERROR();
+                print_error("Failed to authenticate\n");
+                break;
+            }
+
             decode(pkt_len, (frame_packet_t *)uart_buf);
             break;
 
         // Handle subscribe command
         case SUBSCRIBE_MSG:
             STATUS_LED_YELLOW();
+
+            int authenticate = authenticate();
+            if (authenticate != 0) {
+                STATUS_LED_ERROR();
+                print_error("Failed to authenticate\n");
+                break;
+            }
+
             update_subscription(pkt_len, (subscription_update_packet_t *)uart_buf);
             break;
 
