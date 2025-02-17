@@ -368,15 +368,15 @@ void init() {
         flash_simple_write(FLASH_STATUS_ADDR, &decoder_status, sizeof(flash_entry_t));
     }
     // Load or store secrets - Liz
-    uint8_t check_buffer[32]; // Temporary buffer to check if secrets are in flash
-    flash_simple_read(FLASH_STATUS_ADDR + sizeof(flash_entry_t), check_buffer, 32); // Read first 32 bytes of secrets
-    if (check_buffer[0] == 0xFF) {  // If secrets are not in flash
-        print_debug("No secrets found in flash. Writing them now...\n");
-        store_secrets_to_flash();
-    } else {  // Secrets exist, load them
-        print_debug("Secrets found in flash. Loading secrets...\n");
-        load_secrets();
-    }
+    //uint8_t check_buffer[32]; // Temporary buffer to check if secrets are in flash
+    //flash_simple_read(FLASH_STATUS_ADDR + sizeof(flash_entry_t), check_buffer, 32); // Read first 32 bytes of secrets
+    //if (check_buffer[0] == 0xFF) {  // If secrets are not in flash
+    //    print_debug("No secrets found in flash. Writing them now...\n");
+    //    store_secrets_to_flash();
+    //} else {  // Secrets exist, load them
+    //    print_debug("Secrets found in flash. Loading secrets...\n");
+    //    load_secrets();
+    //}
 
     // Initialize the uart peripheral to enable serial I/O
     ret = uart_init();
