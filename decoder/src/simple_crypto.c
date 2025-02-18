@@ -11,8 +11,6 @@
  * @copyright Copyright (c) 2025 The MITRE Corporation
  */
 
-#if CRYPTO_EXAMPLE
-
 #include "simple_crypto.h"
 #include <stdint.h>
 #include <string.h>
@@ -105,4 +103,34 @@ int hash(void *data, size_t len, uint8_t *hash_out) {
     return wc_Md5Hash((uint8_t *)data, len, hash_out);
 }
 
-#endif
+// Yi: reference https://github.com/wolfSSL/wolfssl/blob/master/doc/dox_comments/header_files/ed25519.h#L345
+/** @brief Verifies a digital signature using Ed25519
+ *
+ * @param sig A pointer to a buffer of length sigSz containing the signature
+ * @param sigSz The length of the signature buffer
+ * @param msg A pointer to a buffer of length msgSz containing the original message
+ * @param msgSz The length of the message buffer
+ * @param pubKey A pointer to a buffer of length pubKeySz containing the public key
+ * @param pubKeySz The length of the public key buffer
+ *
+ * @return 0 Returned upon successfully performing the signature verification and authentication.
+ * @return BAD_FUNC_ARG Returned if any of the input parameters evaluate to NULL, or if the siglen does not match the actual length of a signature.
+ * @return SIG_VERIFY_E Returned if verification completes, but the signature generated does not match the signature provided.
+ */
+int ed25519_authenticate(const byte* sig, word32 sigSz, const byte* msg, word32 msgSz,
+                 const byte* pubKey, word32 pubKeySz) {
+    int ret, result = 0;
+    ed25519_key myKey;
+
+    ret = wc_ed25519_init(&myKey);
+    if (ret == 0) {
+        ret = wc_ed25519_import_public(key, keySz, &myKey);
+        if (ret == 0) {
+            ret = wc_ed25519_verify_msg(sig, sigSz, msg, msgSz, result, &myKey);
+        }
+        wc_ed25519_free(&myKey);
+    }
+    return ret;
+}
+
+
