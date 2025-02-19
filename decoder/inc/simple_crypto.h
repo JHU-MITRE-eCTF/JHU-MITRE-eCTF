@@ -11,7 +11,7 @@
  * @copyright Copyright (c) 2025 The MITRE Corporation
  */
 
-
+#ifdef CRYPTO_EXAMPLE
 #ifndef ECTF_CRYPTO_H
 #define ECTF_CRYPTO_H
 
@@ -88,3 +88,4 @@ int hash(void *data, size_t len, uint8_t *hash_out);
 int ed25519_authenticate(const byte* sig, word32 sigSz, const byte* msg, word32 msgSz,
                  const byte* pubKey, word32 pubKeySz)
 #endif // ECTF_CRYPTO_H
+#endif // CRYPTO_EXAMPLE

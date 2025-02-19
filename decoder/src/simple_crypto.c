@@ -11,6 +11,7 @@
  * @copyright Copyright (c) 2025 The MITRE Corporation
  */
 
+#ifdef CRYPTO_EXAMPLE
 #include "simple_crypto.h"
 #include <stdint.h>
 #include <string.h>
@@ -133,4 +134,4 @@ int ed25519_authenticate(const byte* sig, word32 sigSz, const byte* msg, word32 
     return ret;
 }
 
-
+#endif  //CRYPTO_EXAMPLE

@@ -27,7 +27,7 @@
 /* Code between this #ifdef and the subsequent #endif will
 *  be ignored by the compiler if CRYPTO_EXAMPLE is not set in
 *  the projectk.mk file. */
-//#ifdef CRYPTO_EXAMPLE
+#ifdef CRYPTO_EXAMPLE
 /* The simple crypto example included with the reference design is intended
 *  to be an example of how you *may* use cryptography in your design. You
 *  are not limited nor required to use this interface in your design. It is
@@ -35,7 +35,7 @@
 *  library until they have a working design. */
 #include "simple_crypto.h"
 
-// endif  //CRYPTO_EXAMPLE
+# endif  //CRYPTO_EXAMPLE
 
 /**********************************************************
  ******************* PRIMITIVE TYPES **********************
@@ -381,7 +381,6 @@ void crypto_example(void) {
     sprintf(output_buf, "Decrypted message: %s\n", decrypted);
     print_debug(output_buf);
 }
-#endif  //CRYPTO_EXAMPLE
 
 int authenticate(sig, msg) {
     const byte* pubkey = decoder_secrets.signature_public_key;
@@ -391,7 +390,7 @@ int authenticate(sig, msg) {
     }
     return 0;
 }
-
+#endif  //CRYPTO_EXAMPLE
 /**********************************************************
  *********************** MAIN LOOP ************************
  **********************************************************/
@@ -442,26 +441,14 @@ int main(void) {
         case DECODE_MSG:
             STATUS_LED_PURPLE();
 
-<<<<<<< HEAD
-            // int authenticate = authenticate();
-            // if (authenticate != 0) {
-            //     STATUS_LED_ERROR();
-            //     print_error("Failed to authenticate\n");
-            //     break;
-            // }
-=======
-            // last 64bytes of uart_buf is the signature
-            const byte* data = uart_buf->data;
-            const byte* msg = data;
-            const byte* sig = data + (strlen(data) - SIG_SIZE);  // Signature is at the end
-
-            int authenticate = authenticate(msg, sig);
+            #ifdef CRYPTO_EXAMPLE
+            int authenticate = authenticate(sig, msg);
             if (authenticate != 0) {
                 STATUS_LED_ERROR();
                 print_error("Failed to authenticate\n");
                 break;
             }
->>>>>>> origin/dev
+            #endif // CRYPTO_EXAMPLE
 
             decode(pkt_len, (frame_packet_t *)uart_buf);
             break;
@@ -469,18 +456,6 @@ int main(void) {
         // Handle subscribe command
         case SUBSCRIBE_MSG:
             STATUS_LED_YELLOW();
-
-<<<<<<< HEAD
-            // int authenticate = authenticate();
-=======
-            // int authenticate = authenticate(...);
->>>>>>> origin/dev
-            // if (authenticate != 0) {
-            //     STATUS_LED_ERROR();
-            //     print_error("Failed to authenticate\n");
-            //     break;
-            // }
-
             update_subscription(pkt_len, (subscription_update_packet_t *)uart_buf);
             break;
 
