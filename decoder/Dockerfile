@@ -35,7 +35,7 @@ ENV MAXIM_PATH=/root/msdk-2024_02
 
 WORKDIR /decoder
 
-ENTRYPOINT ["bash", "-c", "make release DECODER_ID=${DECODER_ID} && cp build/max78000.elf build/max78000.bin /out"]
+ENTRYPOINT ["bash", "-c", "dd if=/secrets/secrets.bin of=/secrets/secrets_decoder.bin bs=1 count=64 && cd /secrets && arm-none-eabi-objcopy -I binary -O elf32-littlearm -B arm secrets_decoder.bin secrets.o && arm-none-eabi-objcopy secrets.o --redefine-sym _binary_secrets_decoder_bin_start=secrets_bin_start  --redefine-sym _binary_secrets_decoder_bin_end=secrets_bin_end && cd /decoder && make release DECODER_ID=${DECODER_ID} && cp build/max78000.elf build/max78000.bin /out"]
 
 # Sample run command:
 # docker run --rm -v ./build_out:/out -v ./:/decoder -v ./secrets:/secrets -e DECODER_ID=0xdeadbeef decoder
