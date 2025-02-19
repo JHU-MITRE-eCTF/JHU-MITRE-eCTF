@@ -382,13 +382,9 @@ void crypto_example(void) {
     print_debug(output_buf);
 }
 
-int authenticate(sig, msg) {
-    const byte* pubkey = decoder_secrets.signature_public_key;
-    int result = ed25519_authenticate(sig, SIG_SIZE_WORD32, msg, MESSAGE_SIZE_WORD32, PUB_KEY_SIZE_WORD32, PUB_KEY_SIZE);
-    if (result != 0) {
-        return -1;
-    }
-    return 0;
+int authenticate(const byte* sig, const byte* msg) {
+    return ed25519_authenticate(sig, SIG_SIZE, msg, MSG_SIZE, 
+                                decoder_secrets.signature_public_key, PUB_KEY_SIZE);
 }
 #endif  //CRYPTO_EXAMPLE
 /**********************************************************

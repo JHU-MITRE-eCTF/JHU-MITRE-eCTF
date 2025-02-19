@@ -125,9 +125,9 @@ int ed25519_authenticate(const byte* sig, word32 sigSz, const byte* msg, word32 
 
     ret = wc_ed25519_init(&myKey);
     if (ret == 0) {
-        ret = wc_ed25519_import_public(key, keySz, &myKey);
+        ret = wc_ed25519_import_public(pubKey, pubKeySz, &myKey);
         if (ret == 0) {
-            ret = wc_ed25519_verify_msg(sig, sigSz, msg, msgSz, result, &myKey);
+            ret = wc_ed25519_verify_msg(sig, sigSz, msg, msgSz, &result, &myKey);
         }
         wc_ed25519_free(&myKey);
     }
