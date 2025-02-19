@@ -27,14 +27,15 @@
 /* Code between this #ifdef and the subsequent #endif will
 *  be ignored by the compiler if CRYPTO_EXAMPLE is not set in
 *  the projectk.mk file. */
-#ifdef CRYPTO_EXAMPLE
+//#ifdef CRYPTO_EXAMPLE
 /* The simple crypto example included with the reference design is intended
 *  to be an example of how you *may* use cryptography in your design. You
 *  are not limited nor required to use this interface in your design. It is
 *  recommended for newer teams to start by only using the simple crypto
 *  library until they have a working design. */
 #include "simple_crypto.h"
-#endif  //CRYPTO_EXAMPLE
+
+// endif  //CRYPTO_EXAMPLE
 
 /**********************************************************
  ******************* PRIMITIVE TYPES **********************
@@ -52,6 +53,15 @@
 #define MAX_CHANNEL_COUNT 8
 #define EMERGENCY_CHANNEL 0
 #define FRAME_SIZE 64
+
+// Yi: word32 pubkey is 32 bytes and sig is 64 bytes， in wolfssl it defines as word32 format
+#define SIG_SIZE 64 // Ed25519 signature size in bytes
+#define SIG_SIZE_WORD32 (SIG_SIZE / sizeof(word32)) // Size in word32 units
+#define PUB_KEY_SIZE 32 // Ed25519 public key size in bytes
+#define PUB_KEY_SIZE_WORD32 (PUB_KEY_SIZE / sizeof(word32)) // Size in word32 units
+#define MESSAGE_SIZE 74 // Size of the message in bytes, need to change 
+#define MESSAGE_SIZE_WORD32 (MESSAGE_SIZE / sizeof(word32)) // Size in word32 units
+
 #define DEFAULT_CHANNEL_TIMESTAMP 0xFFFFFFFFFFFFFFFF
 // This is a canary value so we can confirm whether this decoder has booted before
 #define FLASH_FIRST_BOOT 0xDEADBEEF
@@ -373,6 +383,15 @@ void crypto_example(void) {
 }
 #endif  //CRYPTO_EXAMPLE
 
+int authenticate(sig, msg) {
+    const byte* pubkey = decoder_secrets.signature_public_key;
+    int result = ed25519_authenticate(sig, SIG_SIZE_WORD32, msg, MESSAGE_SIZE_WORD32, PUB_KEY_SIZE_WORD32, PUB_KEY_SIZE);
+    if (result != 0) {
+        return -1;
+    }
+    return 0;
+}
+
 /**********************************************************
  *********************** MAIN LOOP ************************
  **********************************************************/
@@ -423,12 +442,26 @@ int main(void) {
         case DECODE_MSG:
             STATUS_LED_PURPLE();
 
+<<<<<<< HEAD
             // int authenticate = authenticate();
             // if (authenticate != 0) {
             //     STATUS_LED_ERROR();
             //     print_error("Failed to authenticate\n");
             //     break;
             // }
+=======
+            // last 64bytes of uart_buf is the signature
+            const byte* data = uart_buf->data;
+            const byte* msg = data;
+            const byte* sig = data + (strlen(data) - SIG_SIZE);  // Signature is at the end
+
+            int authenticate = authenticate(msg, sig);
+            if (authenticate != 0) {
+                STATUS_LED_ERROR();
+                print_error("Failed to authenticate\n");
+                break;
+            }
+>>>>>>> origin/dev
 
             decode(pkt_len, (frame_packet_t *)uart_buf);
             break;
@@ -437,7 +470,11 @@ int main(void) {
         case SUBSCRIBE_MSG:
             STATUS_LED_YELLOW();
 
+<<<<<<< HEAD
             // int authenticate = authenticate();
+=======
+            // int authenticate = authenticate(...);
+>>>>>>> origin/dev
             // if (authenticate != 0) {
             //     STATUS_LED_ERROR();
             //     print_error("Failed to authenticate\n");
