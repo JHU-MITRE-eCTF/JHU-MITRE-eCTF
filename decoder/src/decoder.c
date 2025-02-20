@@ -54,6 +54,7 @@
 #define MAX_CHANNEL_COUNT 8
 #define EMERGENCY_CHANNEL 0
 #define FRAME_SIZE 64
+#define SIGNATURE_SIZE 64
 
 #define DEFAULT_CHANNEL_TIMESTAMP 0xFFFFFFFFFFFFFFFF
 // This is a canary value so we can confirm whether this decoder has booted before
@@ -82,6 +83,7 @@ typedef struct {
     channel_id_t channel;
     timestamp_t timestamp;
     uint8_t data[FRAME_SIZE];
+    uint8_t signature[SIGNATURE_SIZE];
 } frame_packet_t;
 
 typedef struct {
