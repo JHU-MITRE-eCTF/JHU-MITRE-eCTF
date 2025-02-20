@@ -120,7 +120,8 @@ int hash(void *data, size_t len, uint8_t *hash_out) {
  */
 int ed25519_authenticate(const byte* sig, word32 sigSz, const byte* msg, word32 msgSz,
                  const byte* pubKey, word32 pubKeySz) {
-    int ret, result = 0;
+    int ret = 0;
+    int result = 0;
     ed25519_key myKey;
 
     ret = wc_ed25519_init(&myKey);
