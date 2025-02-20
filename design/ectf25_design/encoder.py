@@ -9,11 +9,8 @@ own risk!
 
 Copyright: Copyright (c) 2025 The MITRE Corporation
 """
-
-
 import argparse
 import struct
-import json
 from Crypto.Cipher import AES
 from Crypto.Signature import eddsa
 from gen_secrets import load_secret
@@ -90,7 +87,7 @@ class Encoder:
         # Ensure that the channel/timestamp metadata are padded to be 10 bytes
         # 16 bits - channel num; 64 bits - timestamp
         # TODO: Pad the frame to be up to 64 bytes, so payload is struct.pack("<IQ64s", channel, timestamp, frame)
-        payload = struct.pack("<IQ", channel, timestamp) + self.pad_bytes(frame, 64)
+        payload = struct.pack("<IQ", channel, timestamp)
         if DEBUG_MODE:
             print(payload)
             print(len(struct.pack("<IQ", channel, timestamp)))
@@ -102,7 +99,8 @@ class Encoder:
 
         # Encrypted payload should be 74 bytes (64 bytes from frame, 8 bytes from timestamp, 2 bytes for channel num)
         cipher = AES.new(encrypt_key, AES.MODE_GCM)
-        encrypted_payload = cipher.encrypt(payload)
+        encrypted_frame = cipher.encrypt(self.pad_bytes(frame, 64))
+        final_payload = payload + encrypted_frame
 
         # Sign payload using ED25519
         signing_key = bytes(bytearray.fromhex(self.sign_key_private))
@@ -110,12 +108,12 @@ class Encoder:
         signer = eddsa.new(signing_key, 'rfc8032')     # https://datatracker.ietf.org/doc/html/rfc8032#section-3.2
 
         # Signature should be 64 bytes long (!!)
-        signature = signer.sign(encrypted_payload)
+        signature = signer.sign(final_payload)
 
         # Current implementation uses all 64 bytes, meaning we would be
         # doubling the traffic. May need to consider using first/last x bytes
         # going forward!
-        return encrypted_payload + signature
+        return final_payload + signature
 
 
 def main():
@@ -142,4 +140,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
