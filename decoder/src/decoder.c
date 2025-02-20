@@ -33,6 +33,7 @@
 *  are not limited nor required to use this interface in your design. It is
 *  recommended for newer teams to start by only using the simple crypto
 *  library until they have a working design. */
+
 #include "simple_crypto.h"
 
 # endif  //CRYPTO_EXAMPLE
@@ -53,14 +54,6 @@
 #define MAX_CHANNEL_COUNT 8
 #define EMERGENCY_CHANNEL 0
 #define FRAME_SIZE 64
-
-// Yi: word32 pubkey is 32 bytes and sig is 64 bytes， in wolfssl it defines as word32 format
-#define SIG_SIZE 64 // Ed25519 signature size in bytes
-#define SIG_SIZE_WORD32 (SIG_SIZE / sizeof(word32)) // Size in word32 units
-#define PUB_KEY_SIZE 32 // Ed25519 public key size in bytes
-#define PUB_KEY_SIZE_WORD32 (PUB_KEY_SIZE / sizeof(word32)) // Size in word32 units
-#define MESSAGE_SIZE 74 // Size of the message in bytes, need to change 
-#define MESSAGE_SIZE_WORD32 (MESSAGE_SIZE / sizeof(word32)) // Size in word32 units
 
 #define DEFAULT_CHANNEL_TIMESTAMP 0xFFFFFFFFFFFFFFFF
 // This is a canary value so we can confirm whether this decoder has booted before
@@ -382,9 +375,9 @@ void crypto_example(void) {
     print_debug(output_buf);
 }
 
-int authenticate(const byte* sig, const byte* msg) {
-    return ed25519_authenticate(sig, SIG_SIZE, msg, MSG_SIZE, 
-                                decoder_secrets.signature_public_key, PUB_KEY_SIZE);
+int authenticate(const byte* sig, const byte* msg, const byte* pub_key) {
+    return ed25519_authenticate(sig, SIG_SIZE, msg, MESSAGE_SIZE, 
+                                pub_key, PUB_KEY_SIZE);
 }
 #endif  //CRYPTO_EXAMPLE
 /**********************************************************
@@ -438,8 +431,13 @@ int main(void) {
             STATUS_LED_PURPLE();
 
             #ifdef CRYPTO_EXAMPLE
-            int authenticate = authenticate(sig, msg);
-            if (authenticate != 0) {
+            //sigature is the last 64 bytes of the massage ... 
+            
+            byte signature[SIG_SIZE] = {0};  
+            byte message[MESSAGE_SIZE] = {0};  
+            byte public_key[PUB_KEY_SIZE] = {0};
+            int authen = authenticate(signature, message, public_key);
+            if (authen != 0) {
                 STATUS_LED_ERROR();
                 print_error("Failed to authenticate\n");
                 break;

@@ -14,19 +14,22 @@
 #ifdef CRYPTO_EXAMPLE
 #ifndef ECTF_CRYPTO_H
 #define ECTF_CRYPTO_H
+// #define HAVE_ED25519
+// #define WOLFSSL_SHA512
 
 #include "wolfssl/wolfcrypt/aes.h"
 #include "wolfssl/wolfcrypt/hash.h"
-
-#include <wolfssl/options.h>
-#include <wolfssl/wolfcrypt/ed25519.h>
-#include <wolfssl/wolfcrypt/types.h>
-#include <wolfssl/wolfcrypt/signature.h>
+#include "wolfssl/wolfcrypt/ed25519.h"
 
 /******************************** MACRO DEFINITIONS ********************************/
 #define BLOCK_SIZE AES_BLOCK_SIZE
 #define KEY_SIZE 16
 #define HASH_SIZE MD5_DIGEST_SIZE
+
+// Yi: word32 pubkey is 32 bytes and sig is 64 bytes， in wolfssl it defines as word32 format
+#define SIG_SIZE 64 // Ed25519 signature size in bytes
+#define PUB_KEY_SIZE 32 // Ed25519 public key size in bytes
+#define MESSAGE_SIZE 74 // Size of the message in bytes, need to change 
 
 /******************************** FUNCTION PROTOTYPES ********************************/
 /** @brief Encrypts plaintext using a symmetric cipher
@@ -86,6 +89,7 @@ int hash(void *data, size_t len, uint8_t *hash_out);
  * @return SIG_VERIFY_E Returned if verification completes, but the signature generated does not match the signature provided.
  */
 int ed25519_authenticate(const byte* sig, word32 sigSz, const byte* msg, word32 msgSz,
-                 const byte* pubKey, word32 pubKeySz)
+                 const byte* pubKey, word32 pubKeySz);
+
 #endif // ECTF_CRYPTO_H
 #endif // CRYPTO_EXAMPLE
