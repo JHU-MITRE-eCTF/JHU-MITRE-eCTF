@@ -135,4 +135,26 @@ int ed25519_authenticate(const byte* sig, word32 sigSz, const byte* msg, word32 
     return ret;
 }
 
+int aes_gcm_decrypt(uint8_t *ciphertext, size_t ciphertext_len,
+                     uint8_t *key, uint8_t *iv, uint8_t *tag, uint8_t *plaintext) {
+    Aes aes; //can use the same struct as was passed to wc_AesGcmEncrypt
+    // initialize aes structure by calling wc_AesInit and wc_AesGcmSetKey
+    // if not already done
+    int ret;
+
+    // Initialize AES-GCM context
+    if (ret = wc_AesInit(&aes, NULL, INVALID_DEVID) != 0) {
+        return -1;
+    }
+    // Set AES-GCM key for decryption
+    if (ret = wc_AesGcmSetKey(&aes, key, KEY_SIZE) != 0) {
+        return -1;
+    }
+    if (ret = wc_AesGcmDecrypt(&aes, plaintext, ciphertext, ciphertext_len,
+                              iv, IV_SIZE, tag, AUTH_TAG_SIZE, NULL, 0) != 0) {
+        return -1;
+    }
+    return 0;
+}
+
 #endif  //CRYPTO_EXAMPLE

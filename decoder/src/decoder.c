@@ -21,6 +21,7 @@
 #include "mxc_delay.h"
 #include "simple_flash.h"
 #include "host_messaging.h"
+#include "subscription.h"
 
 #include "simple_uart.h"
 
@@ -54,6 +55,7 @@
 #define MAX_CHANNEL_COUNT 8
 #define EMERGENCY_CHANNEL 0
 #define FRAME_SIZE 64
+#define KEY_SIZE 32
 #define SIGNATURE_SIZE 64
 
 #define DEFAULT_CHANNEL_TIMESTAMP 0xFFFFFFFFFFFFFFFF
@@ -79,18 +81,41 @@ extern const unsigned char secrets_bin_end[];
 #pragma pack(push, 1) // Tells the compiler not to pad the struct members
 // for more information on what struct padding does, see:
 // https://www.gnu.org/software/c-intro-and-ref/manual/html_node/Structure-Layout.html
+
+// Binary packet format, see:
+// https://jhu-mitre-ectf.atlassian.net/wiki/spaces/BT/pages/3768335/Binary+Data+Format+Specifications
+
+// Zhong: Define the AES_GCM packet type
 typedef struct {
+    // header
     channel_id_t channel;
     timestamp_t timestamp;
+    uint8_t body_length;
+    // body
     uint8_t data[FRAME_SIZE];
+    // footer
     uint8_t signature[SIGNATURE_SIZE];
 } frame_packet_t;
+
+typedef struct {
+    uint8_t nonce[12];
+    uint8_t ciphertext[FRAME_SIZE]; //for AES_GCM the length of ciphertext is equal to cleartext
+    uint8_t tag[16];
+} aes_gcm_packet_frame_t;
+
+typedef struct {
+    uint8_t nonce[12];
+    uint8_t ciphertext[KEY_SIZE]; //for AES_GCM the length of ciphertext is equal to cleartext
+    uint8_t tag[16];
+} aes_gcm_packet_key_t;
 
 typedef struct {
     decoder_id_t decoder_id;
     timestamp_t start_timestamp;
     timestamp_t end_timestamp;
     channel_id_t channel;
+    aes_gcm_packet_key_t encrypted_channel_key;
+    uint8_t signature[SIGNATURE_SIZE];
 } subscription_update_packet_t;
 
 typedef struct {
@@ -224,13 +249,45 @@ int list_channels() {
  *  @return 0 upon success.  -1 if error.
 */
 int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update) {
-    int i;
 
     if (update->channel == EMERGENCY_CHANNEL) {
         STATUS_LED_RED();
         print_error("Failed to update subscription - cannot subscribe to emergency channel\n");
         return -1;
     }
+
+    int i;
+    int ret;
+    // Zhong: verify the signature
+    unsigned int msgSz = sizeof(subscription_update_packet_t) - SIGNATURE_SIZE;
+    ret = ed25519_authenticate(update->signature, SIGNATURE_SIZE, (u_int8_t *)update, msgSz,
+                 decoder_secrets.signature_public_key, KEY_SIZE);
+
+    // Zhong: if invalid signature, return error
+    if (ret != 0) {
+        STATUS_LED_RED();
+        print_error("Failed to update subscription - invalid signature\n");
+        return -1;
+    }
+    
+    // Zhong: TODO: verifiy the decoder ID
+    // if (decoder_id != update->decoder_id) {
+    //     STATUS_LED_RED();
+    //     print_error("Failed to update subscription - invalid decoder ID\n");
+    //     return -1;
+    // }
+
+    // Zhong: Decrypt the subscription to get channel key
+    u_int8_t channel_key[KEY_SIZE];
+    ret = aes_gcm_decrypt((uint8_t *)update->encrypted_channel_key.ciphertext, KEY_SIZE,
+                     decoder_secrets.subscription_key, (uint8_t *)update->encrypted_channel_key.nonce, (uint8_t *)update->encrypted_channel_key.tag, (uint8_t *)channel_key);
+    if (ret != 0) {
+        STATUS_LED_RED();
+        print_error("Failed to update subscription - invalid subscription key\n");
+        return -1;
+    }
+    // Zhong: Store the channel key
+    memcpy(&decoder_secrets.channel_keys[update->channel], channel_key, KEY_SIZE);
 
     // Find the first empty slot in the subscription array
     for (i = 0; i < MAX_CHANNEL_COUNT; i++) {
