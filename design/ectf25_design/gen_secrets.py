@@ -14,36 +14,8 @@ import argparse
 import json
 from pathlib import Path
 import struct
-import secrets
-from Crypto.PublicKey import ECC
 from loguru import logger
-
-#Liz - Adding a function to generate private 256-bit AES keys.
-def gen_aes_key() -> bytes:
-    key = secrets.token_bytes(32)
-    return key
-
-#Yi - generate subscription key 
-def gen_subscription_key() -> bytes:
-    return gen_aes_key()
-
-def gen_channel_keys(channels: list[int]) -> tuple[bytes]:
-    """Zhong - Generate the keys for each channel"""
-    return (gen_aes_key() for _ in channels)
-
-def gen_public_private_key_pair() -> tuple[bytes, bytes]:
-    """ Generate the public/private key-pair 
-        used to sign each frame so that the decoder can verify the frames originated from
-        our encoder and subscription updates
-        Reference: https://pycryptodome.readthedocs.io/en/latest/src/public_key/ecc.html#Crypto.PublicKey.ECC.EccKey
-        
-    :returns: Tuple of (public_key, private_key)
-    """
-    ecc_key = ECC.generate(curve="Ed25519")
-    ecc_private_key = ecc_key.seed
-    ecc_public_key = ecc_key.public_key().export_key(format="raw")
-    return ecc_public_key, ecc_private_key
-
+from utils import *
 
 def load_secret(secrets_bytes: bytes) -> dict:
     """ Load the secrets from the secrets binary

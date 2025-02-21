@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 import struct
 from gen_secrets import load_secret
+from utils import *
 
 
 from loguru import logger
@@ -38,24 +39,28 @@ def gen_subscription(
     :rtype: bytes
     
     :format specification for subscription.bin:
-    TODO: Formally define the format of the subscription
-        4 bytes: device_id
-        8 bytes: start
-        8 bytes: end
-        8 bytes: channel
-        32 bytes: channel_key
-        TODO: signature
+    https://jhu-mitre-ectf.atlassian.net/wiki/spaces/BT/pages/3768335/Binary+Data+Format+Specifications
+        4 bytes: device_id (uint32_t)
+        8 bytes: start_timestamp (uint64_t)
+        8 bytes: end_timestamp (uint64_t)
+        4 bytes: channel (uint32_t)
+        60 bytes: encrypted_channel_key (12 bytes nounce + 32 bytes encrypted_key + 16 bytes tag)
+        64 bytes: ed25519_signature (sign device_id+start_timestamp+end_timestamp+channel+encrypted_channel_key)
     """
     # Load secrets into a dictionary
     secrets = load_secret(secrets)
-
-    # Pack the subscription. This will be sent to the decoder with ectf25.tv.subscribe
-    ret = struct.pack("<IQQQ32s", device_id, start, end, channel, secrets["channel_keys"][channel])
     
     #https://stackoverflow.com/questions/67307689/decrypt-an-encrypted-message-with-aes-gcm-in-python#:~:text=6,posted%20for%20encryption%3A
-    cipher = AES.new(secrets["subscription_key"], AES.XXX)
-    # TODO: sign the subscription
-    return cipher.encrypt(ret)
+    aes_acm_packet = aes_gcm_encrypt(secrets["channel_keys"][channel], secrets["subscription_key"])
+    assert len(aes_acm_packet) == 60, f"length error: aes_acm_packet length is {len(aes_acm_packet)}"
+    # sign the subscription
+    signature = ed25519_sign(struct.pack("<IQQI60s", device_id, start, end, channel, aes_acm_packet),\
+        secrets["signature_private_key"])
+    # Pack the subscription. This will be sent to the decoder with ectf25.tv.subscribe
+    ret = struct.pack("<IQQI60s64s", device_id, start, end, channel, aes_acm_packet, signature)
+    print(f"{device_id} {start} {end} {channel} {aes_acm_packet} {signature}")
+    assert ed25519_verify(ret[-64:], ret[:-64], secrets["signature_public_key"]) == True, "signature generation error"
+    return ret
 
 
 def parse_args():
