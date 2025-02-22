@@ -58,7 +58,6 @@ def gen_subscription(
         secrets["signature_private_key"])
     # Pack the subscription. This will be sent to the decoder with ectf25.tv.subscribe
     ret = struct.pack("<IQQI60s64s", device_id, start, end, channel, aes_acm_packet, signature)
-    print(f"{device_id} {start} {end} {channel} {aes_acm_packet} {signature}")
     assert ed25519_verify(ret[-64:], ret[:-64], secrets["signature_public_key"]) == True, "signature generation error"
     return ret
 

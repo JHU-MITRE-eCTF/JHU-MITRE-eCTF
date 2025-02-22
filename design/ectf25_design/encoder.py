@@ -14,6 +14,7 @@ import struct
 from Crypto.Cipher import AES
 from Crypto.Signature import eddsa
 from gen_secrets import load_secret
+from utils import *
 
 DEBUG_MODE = True
 
@@ -29,11 +30,10 @@ class Encoder:
         #   improve the throughput of Encoder.encode
 
         secrets = load_secret(secrets)
-
         self.channel_keys = secrets["channel_keys"]
         self.sub_key = secrets["subscription_key"]
         self.sign_key_private = secrets["signature_private_key"]
-        
+        self.sign_key_public = secrets["signature_public_key"]
 
     def pad_bytes(self, frame: bytes, max_width: int) -> bytes:
         """Pads the frame to the max_width number of bytes.
@@ -65,6 +65,56 @@ class Encoder:
         
         return frame
 
+    # def encode(self, channel: int, frame: bytes, timestamp: int) -> bytes:
+    #     """The frame encoder function
+
+    #     This will be called for every frame that needs to be encoded before being
+    #     transmitted by the satellite to all listening TVs
+
+    #     You **may not** change the arguments or returns of this function!
+
+    #     :param channel: 16b unsigned channel number. Channel 0 is the emergency
+    #         broadcast that must be decodable by all channels.
+    #     :param frame: Frame to encode. Max frame size is 64 bytes.
+    #     :param timestamp: 64b timestamp to use for encoding. **NOTE**: This value may
+    #         have no relation to the current timestamp, so you should not compare it
+    #         against the current time. The timestamp is guaranteed to strictly
+    #         monotonically increase (always go up) with subsequent calls to encode
+
+    #     :returns: The encoded frame, which will be sent to the Decoder
+    #     """
+    #     # Combine the channel/timestamp + frame
+    #     # Ensure that the channel/timestamp metadata are padded to be 10 bytes
+    #     # 16 bits - channel num; 64 bits - timestamp
+    #     # TODO: Pad the frame to be up to 64 bytes, so payload is struct.pack("<IQ64s", channel, timestamp, frame)
+    #     payload = struct.pack("<IQ", channel, timestamp)
+    #     if DEBUG_MODE:
+    #         print(payload)
+    #         print(len(struct.pack("<IQ", channel, timestamp)))
+
+    #     # Encrypt payload using AES-256-GCM
+    #     encrypt_key = self.channel_keys[channel]
+    #     encrypt_key = bytes(bytearray.fromhex(encrypt_key))
+    #     assert len(encrypt_key) == 32
+
+    #     # Encrypted payload should be 74 bytes (64 bytes from frame, 8 bytes from timestamp, 2 bytes for channel num)
+    #     cipher = AES.new(encrypt_key, AES.MODE_GCM)
+    #     encrypted_frame = cipher.encrypt(self.pad_bytes(frame, 64))
+    #     final_payload = payload + encrypted_frame
+
+    #     # Sign payload using ED25519
+    #     signing_key = bytes(bytearray.fromhex(self.sign_key_private))
+    #     signing_key = eddsa.import_private_key(signing_key)
+    #     signer = eddsa.new(signing_key, 'rfc8032')     # https://datatracker.ietf.org/doc/html/rfc8032#section-3.2
+
+    #     # Signature should be 64 bytes long (!!)
+    #     signature = signer.sign(final_payload)
+
+    #     # Current implementation uses all 64 bytes, meaning we would be
+    #     # doubling the traffic. May need to consider using first/last x bytes
+    #     # going forward!
+    #     return final_payload + signature
+    
     def encode(self, channel: int, frame: bytes, timestamp: int) -> bytes:
         """The frame encoder function
 
@@ -83,37 +133,28 @@ class Encoder:
 
         :returns: The encoded frame, which will be sent to the Decoder
         """
-        # Combine the channel/timestamp + frame
-        # Ensure that the channel/timestamp metadata are padded to be 10 bytes
-        # 16 bits - channel num; 64 bits - timestamp
-        # TODO: Pad the frame to be up to 64 bytes, so payload is struct.pack("<IQ64s", channel, timestamp, frame)
-        payload = struct.pack("<IQ", channel, timestamp)
+        # encrypt frame: nonce + ciphertext + tag
+        nonce, ciphertext, tag = aes_gcm_encrypt_split(frame, self.channel_keys[channel])
+        # sign frame
+        signature = ed25519_sign(struct.pack(f"<IQB12s64s16s",  channel, timestamp, len(frame), nonce, ciphertext, tag),\
+            self.sign_key_private)
+        """
+        :format specification for packets:
+            --- header
+            4 bytes: channel_number (unsigned int)
+            8 bytes: timestamp (unsigned int)
+            1 byte ciphertext_length (unsigned int)
+            --- body
+            92 bytes: encrypted_frame (12 bytes nounce + 64 bytes ciphertext(vary) + 16 bytes tag)
+            64 bytes: ed25519_signature (sign channel_number+timestamp+ciphertext_length+encrypted_frame)
+        """
+        ret = struct.pack(f"<IQB12s64s16s64s", channel, timestamp, len(frame), nonce, ciphertext, tag, signature)
         if DEBUG_MODE:
-            print(payload)
-            print(len(struct.pack("<IQ", channel, timestamp)))
+            print(f"{channel} {timestamp} {nonce} {ciphertext} {tag} {signature}")
+            print(f"length: {len(ret)}")
+        assert ed25519_verify(ret[-64:], ret[:-64], self.sign_key_public) == True, "signature generation error"
+        return ret
 
-        # Encrypt payload using AES-256-GCM
-        encrypt_key = self.channel_keys[channel]
-        encrypt_key = bytes(bytearray.fromhex(encrypt_key))
-        assert len(encrypt_key) == 32
-
-        # Encrypted payload should be 74 bytes (64 bytes from frame, 8 bytes from timestamp, 2 bytes for channel num)
-        cipher = AES.new(encrypt_key, AES.MODE_GCM)
-        encrypted_frame = cipher.encrypt(self.pad_bytes(frame, 64))
-        final_payload = payload + encrypted_frame
-
-        # Sign payload using ED25519
-        signing_key = bytes(bytearray.fromhex(self.sign_key_private))
-        signing_key = eddsa.import_private_key(signing_key)
-        signer = eddsa.new(signing_key, 'rfc8032')     # https://datatracker.ietf.org/doc/html/rfc8032#section-3.2
-
-        # Signature should be 64 bytes long (!!)
-        signature = signer.sign(final_payload)
-
-        # Current implementation uses all 64 bytes, meaning we would be
-        # doubling the traffic. May need to consider using first/last x bytes
-        # going forward!
-        return final_payload + signature
 
 
 def main():

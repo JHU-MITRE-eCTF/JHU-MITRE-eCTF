@@ -90,22 +90,22 @@ extern const unsigned char secrets_bin_end[];
 // https://jhu-mitre-ectf.atlassian.net/wiki/spaces/BT/pages/3768335/Binary+Data+Format+Specifications
 
 // Zhong: Define the AES_GCM packet type
-typedef struct {
-    // header
-    channel_id_t channel;
-    timestamp_t timestamp;
-    uint8_t body_length;
-    // body
-    uint8_t data[FRAME_SIZE];
-    // footer
-    uint8_t signature[SIGNATURE_SIZE];
-} frame_packet_t;
 
 typedef struct {
     uint8_t nonce[12];
     uint8_t ciphertext[FRAME_SIZE]; //for AES_GCM the length of ciphertext is equal to cleartext
     uint8_t tag[16];
 } aes_gcm_packet_frame_t;
+
+typedef struct {
+    // header
+    channel_id_t channel;
+    timestamp_t timestamp;
+    uint8_t data_length;
+    // body
+    aes_gcm_packet_frame_t data;
+    uint8_t signature[SIGNATURE_SIZE];
+} frame_packet_t;
 
 typedef struct {
     uint8_t nonce[12];
@@ -144,6 +144,7 @@ typedef struct {
     channel_id_t id;
     timestamp_t start_timestamp;
     timestamp_t end_timestamp;
+    uint8_t channel_key[KEY_SIZE];  // AES-256 keys for decrypting frames
 } channel_status_t;
 
 typedef struct {
@@ -155,7 +156,6 @@ typedef struct {
 typedef struct {
     uint8_t subscription_key[32];  // AES-256 key for subscription updates
     uint8_t signature_public_key[32];  // ECC public key for verifying signatures
-    uint8_t channel_keys[MAX_CHANNEL_COUNT][32];  // AES-256 keys for decrypting frames
 } secrets_t;
 
 /**********************************************************
@@ -262,6 +262,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
 
     int i;
     int ret;
+    
     // Zhong: verify the signature
     unsigned int msgSz = sizeof(subscription_update_packet_t) - SIGNATURE_SIZE;
     ret = ed25519_authenticate(update->signature, SIGNATURE_SIZE, (u_int8_t *)update, msgSz,
@@ -274,7 +275,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
         return -1;
     }
     
-    // Zhong: verifiy the decoder ID
+    // Zhong: verify the decoder ID
     if (DECODER_ID != update->decoder_id) {
         STATUS_LED_RED();
         print_error("Failed to update subscription - invalid decoder ID\n");
@@ -290,8 +291,6 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
         print_error("Failed to update subscription - invalid subscription key\n");
         return -1;
     }
-    // Zhong: Store the channel key
-    memcpy(&decoder_secrets.channel_keys[update->channel], channel_key, KEY_SIZE);
 
     // Find the first empty slot in the subscription array
     for (i = 0; i < MAX_CHANNEL_COUNT; i++) {
@@ -300,6 +299,8 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
             decoder_status.subscribed_channels[i].id = update->channel;
             decoder_status.subscribed_channels[i].start_timestamp = update->start_timestamp;
             decoder_status.subscribed_channels[i].end_timestamp = update->end_timestamp;
+            // Zhong: Store the channel key
+            memcpy(&decoder_status.subscribed_channels[i].channel_key, channel_key, KEY_SIZE);
             break;
         }
     }
@@ -323,36 +324,69 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
  *  @param pkt_len A pointer to the incoming packet.
  *  @param new_frame A pointer to the incoming packet.
  *
+ *  @note: Zhong: in the pre-checking we give first priority to less time costing tasks.
+ *         such as subscription check, timestamp check;
  *  @return 0 if successful.  -1 if data is from unsubscribed channel.
 */
 int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     char output_buf[128] = {0};
-    uint16_t frame_size;
-    channel_id_t channel;
+    u_int8_t channel_key[KEY_SIZE];
+    uint16_t frame_size = new_frame->data_length;
+    channel_id_t channel = new_frame->channel;
+    unsigned int message_size;
+    u_int8_t decrypted_frame[new_frame->data_length];
+    int ret;
 
-    // Frame size is the size of the packet minus the size of non-frame elements
-    frame_size = pkt_len - (sizeof(new_frame->channel) + sizeof(new_frame->timestamp));
-    channel = new_frame->channel;
-
-    // The reference design doesn't use the timestamp, but you may want to in your design
-    // timestamp_t timestamp = new_frame->timestamp;
-
-    // Check that we are subscribed to the channel...
+    // Check that we are subscribed to the channel
     print_debug("Checking subscription\n");
-    if (is_subscribed(channel)) {
-        print_debug("Subscription Valid\n");
-        /* The reference design doesn't need any extra work to decode, but your design likely will.
-        *  Do any extra decoding here before returning the result to the host. */
-        write_packet(DECODE_MSG, new_frame->data, frame_size);
-        return 0;
-    } else {
+    if (!is_subscribed(channel)) {
         STATUS_LED_RED();
         sprintf(
             output_buf,
             "Receiving unsubscribed channel data.  %u\n", channel);
+        goto failed_decoding;
         print_error(output_buf);
         return -1;
     }
+    // The reference design doesn't use the timestamp, but you may want to in your design
+    // timestamp_t timestamp = new_frame->timestamp;
+    // TODO: subscription timestamp check
+
+    // Zhong: verify the signature; resource consuming task put at last
+    message_size = pkt_len - SIGNATURE_SIZE;
+    ret = ed25519_authenticate(new_frame->signature, SIGNATURE_SIZE, (u_int8_t *)new_frame, message_size,
+                 decoder_secrets.signature_public_key, KEY_SIZE);
+    // Zhong: if invalid signature, return error
+    if (ret != 0) {
+        STATUS_LED_RED();
+        goto failed_decoding;
+        print_error("Failed to decrypt frame - invalid signature\n");
+        return -1;
+    }
+    // Zhong: Looking for the persistent channel key
+    for (int i = 0; i < MAX_CHANNEL_COUNT; i++) {
+        if (decoder_status.subscribed_channels[i].id == channel) {
+             memcpy(channel_key, decoder_status.subscribed_channels[i].channel_key, KEY_SIZE);
+             break;
+        }
+    }
+    // Zhong: Decrypt the encrypted frame
+    ret = aes_gcm_decrypt((uint8_t *)new_frame->data.ciphertext, new_frame->data_length,
+                     channel_key, (uint8_t *)new_frame->data.nonce, (uint8_t *)new_frame->data.tag, (uint8_t *)decrypted_frame);
+    if (ret != 0) {
+        STATUS_LED_RED();
+        goto failed_decoding;
+        print_error("Failed to decrypt frame - invalid channel key\n");
+        return -1;
+    }
+    /* The reference design doesn't need any extra work to decode, but your design likely will.
+    *  Do any extra decoding here before returning the result to the host. */
+    write_packet(DECODE_MSG, decrypted_frame, new_frame->data_length);
+    return 0;
+
+    failed_decoding:
+        write_packet(DECODE_MSG, new_frame->data.ciphertext, new_frame->data_length);
+        return -1;
 }
 
 /** @brief Initializes peripherals for system boot.
@@ -492,20 +526,6 @@ int main(void) {
         // Handle decode command
         case DECODE_MSG:
             STATUS_LED_PURPLE();
-
-            #ifdef CRYPTO_EXAMPLE
-            //sigature is the last 64 bytes of the massage ... 
-            
-            byte signature[SIG_SIZE] = {0};  
-            byte message[MESSAGE_SIZE] = {0};  
-            byte public_key[PUB_KEY_SIZE] = {0};
-            int authen = authenticate(signature, message, public_key);
-            if (authen != 0) {
-                STATUS_LED_ERROR();
-                print_error("Failed to authenticate\n");
-                break;
-            }
-            #endif // CRYPTO_EXAMPLE
 
             decode(pkt_len, (frame_packet_t *)uart_buf);
             break;

@@ -71,3 +71,16 @@ def aes_gcm_encrypt(plaintext: bytes, key: bytes) -> tuple[bytes, bytes, bytes]:
     cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
     ciphertext, tag = cipher.encrypt_and_digest(plaintext)
     return nonce + ciphertext + tag
+
+def aes_gcm_encrypt_split(plaintext: bytes, key: bytes) -> tuple[bytes, bytes, bytes]:
+    """ Zhong - Encrypt the plaintext using AES-GCM
+        Reference: https://pycryptodome.readthedocs.io/en/latest/src/cipher/aes.html#Crypto.Cipher.AES
+    
+    :param plaintext: The plaintext to encrypt
+    :param key: The 256-bit key to use for encryption
+    :returns: Tuple of (nonce, ciphertext, tag)
+    """
+    nonce = get_random_bytes(12)
+    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
+    ciphertext, tag = cipher.encrypt_and_digest(plaintext)
+    return nonce, ciphertext, tag
