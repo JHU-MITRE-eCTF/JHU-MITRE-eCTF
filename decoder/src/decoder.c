@@ -300,7 +300,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
             decoder_status.subscribed_channels[i].start_timestamp = update->start_timestamp;
             decoder_status.subscribed_channels[i].end_timestamp = update->end_timestamp;
             // Zhong: Store the channel key
-            memcpy(&decoder_status.subscribed_channels[i].channel_key, channel_key, KEY_SIZE);
+            memcpy(decoder_status.subscribed_channels[i].channel_key, channel_key, KEY_SIZE);
             break;
         }
     }
@@ -330,7 +330,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
 */
 int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     char output_buf[128] = {0};
-    u_int8_t channel_key[KEY_SIZE];
+    u_int8_t channel_key[KEY_SIZE] = {0};
     uint16_t frame_size = new_frame->data_length;
     channel_id_t channel = new_frame->channel;
     unsigned int message_size;
@@ -344,7 +344,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         sprintf(
             output_buf,
             "Receiving unsubscribed channel data.  %u\n", channel);
-        goto failed_decoding;
+        // goto failed_decoding;
         print_error(output_buf);
         return -1;
     }
@@ -359,7 +359,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     // Zhong: if invalid signature, return error
     if (ret != 0) {
         STATUS_LED_RED();
-        goto failed_decoding;
+        // goto failed_decoding;
         print_error("Failed to decrypt frame - invalid signature\n");
         return -1;
     }
@@ -371,13 +371,17 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         }
     }
     // Zhong: Decrypt the encrypted frame
-    ret = aes_gcm_decrypt((uint8_t *)new_frame->data.ciphertext, new_frame->data_length,
-                     channel_key, (uint8_t *)new_frame->data.nonce, (uint8_t *)new_frame->data.tag, (uint8_t *)decrypted_frame);
-    if (ret != 0) {
-        STATUS_LED_RED();
-        goto failed_decoding;
-        print_error("Failed to decrypt frame - invalid channel key\n");
-        return -1;
+    if (channel == EMERGENCY_CHANNEL) { 
+        memcpy(decrypted_frame, new_frame->data.ciphertext, new_frame->data_length);
+    } else {
+        ret = aes_gcm_decrypt((uint8_t *)new_frame->data.ciphertext, new_frame->data_length,
+                        channel_key, (uint8_t *)new_frame->data.nonce, (uint8_t *)new_frame->data.tag, (uint8_t *)decrypted_frame);
+        if (ret != 0) {
+            STATUS_LED_RED();
+            // goto failed_decoding;
+            print_error("Failed to decrypt frame - invalid channel key\n");
+            return -1;
+        }
     }
     /* The reference design doesn't need any extra work to decode, but your design likely will.
     *  Do any extra decoding here before returning the result to the host. */
@@ -517,7 +521,7 @@ int main(void) {
             #ifdef CRYPTO_EXAMPLE
                 // Run the crypto example
                 // TODO: Remove this from your design
-                crypto_example();
+                // crypto_example();
             #endif // CRYPTO_EXAMPLE
 
             list_channels();

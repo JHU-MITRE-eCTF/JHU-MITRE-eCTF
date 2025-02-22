@@ -35,35 +35,35 @@ class Encoder:
         self.sign_key_private = secrets["signature_private_key"]
         self.sign_key_public = secrets["signature_public_key"]
 
-    def pad_bytes(self, frame: bytes, max_width: int) -> bytes:
-        """Pads the frame to the max_width number of bytes.
-        Rather than using null bytes (\0), which may be problematic
-        if the frame contains legitimate null bytes in the final 
-        x bytes, pad the frame with the number of bytes padded.
-        Example: For a 60-byte frame, we would pad the last 4 bytes 
-        with the bytevalue of 4 (\x04).
+    # def pad_bytes(self, frame: bytes, max_width: int) -> bytes:
+    #     """Pads the frame to the max_width number of bytes.
+    #     Rather than using null bytes (\0), which may be problematic
+    #     if the frame contains legitimate null bytes in the final 
+    #     x bytes, pad the frame with the number of bytes padded.
+    #     Example: For a 60-byte frame, we would pad the last 4 bytes 
+    #     with the bytevalue of 4 (\x04).
 
-        This ensures that all frames have a size of 64 bytes
-        to prevent leakage of the length of the data being
-        transmitted over the air from the uplink/satellite systems.
+    #     This ensures that all frames have a size of 64 bytes
+    #     to prevent leakage of the length of the data being
+    #     transmitted over the air from the uplink/satellite systems.
 
-        :param frame: Bytestring of <= 64 bytes
-        :param max_width: Length that the fame should be padded to
+    #     :param frame: Bytestring of <= 64 bytes
+    #     :param max_width: Length that the fame should be padded to
 
-        :returns: The padded frame, which will be encoded by encode()
-        """
-        # Check that the frame length is less than max_width
-        if len(frame) == max_width:
-            return frame
+    #     :returns: The padded frame, which will be encoded by encode()
+    #     """
+    #     # Check that the frame length is less than max_width
+    #     if len(frame) == max_width:
+    #         return frame
 
-        num_padded_bytes = max_width - len(frame)
-        if DEBUG_MODE:
-            print(f'Length of frame: {len(frame)}. Need {num_padded_bytes} bytes of padding.')
+    #     num_padded_bytes = max_width - len(frame)
+    #     if DEBUG_MODE:
+    #         print(f'Length of frame: {len(frame)}. Need {num_padded_bytes} bytes of padding.')
         
-        for i in range(num_padded_bytes):
-            frame += bytes([ord(chr(num_padded_bytes))])
+    #     for i in range(num_padded_bytes):
+    #         frame += bytes([ord(chr(num_padded_bytes))])
         
-        return frame
+    #     return frame
 
     # def encode(self, channel: int, frame: bytes, timestamp: int) -> bytes:
     #     """The frame encoder function
@@ -123,7 +123,7 @@ class Encoder:
 
         You **may not** change the arguments or returns of this function!
 
-        :param channel: 16b unsigned channel number. Channel 0 is the emergency
+        :param channel: 32b unsigned channel number. Channel 0 is the emergency
             broadcast that must be decodable by all channels.
         :param frame: Frame to encode. Max frame size is 64 bytes.
         :param timestamp: 64b timestamp to use for encoding. **NOTE**: This value may
@@ -133,11 +133,16 @@ class Encoder:
 
         :returns: The encoded frame, which will be sent to the Decoder
         """
+        
+        if channel == 0:
+            # no encryption for channel 0
+            nonce, ciphertext, tag = b'\x00', frame, b'\x00'
+        else:
         # encrypt frame: nonce + ciphertext + tag
-        nonce, ciphertext, tag = aes_gcm_encrypt_split(frame, self.channel_keys[channel])
+            nonce, ciphertext, tag = aes_gcm_encrypt_split(frame, self.channel_keys[channel])
         # sign frame
         signature = ed25519_sign(struct.pack(f"<IQB12s64s16s",  channel, timestamp, len(frame), nonce, ciphertext, tag),\
-            self.sign_key_private)
+                self.sign_key_private)
         """
         :format specification for packets:
             --- header
