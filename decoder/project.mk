@@ -20,9 +20,9 @@ MFLOAT_ABI=soft
 
 IPATH+=../deployment
 IPATH+=inc/
-IPATH+=/secrets
+IPATH+=secrets/
 VPATH+=src/
-
+PROJ_OBJS+=secrets/secrets.o
 # ****************** eCTF Bootloader *******************
 # DO NOT REMOVE
 LINKERFILE=firmware.ld
@@ -40,5 +40,6 @@ ENTRY=firmware_startup
 
 # Enable Crypto Example
 CRYPTO_EXAMPLE=1
+DECODER_ID=0x12345678
 
 PROJ_CFLAGS += -DHAVE_ED25519 -DWOLFSSL_SHA512 -DHAVE_AESGCM
