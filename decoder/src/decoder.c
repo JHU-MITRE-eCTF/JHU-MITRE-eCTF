@@ -348,10 +348,6 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         print_error(output_buf);
         return -1;
     }
-    // The reference design doesn't use the timestamp, but you may want to in your design
-    // timestamp_t timestamp = new_frame->timestamp;
-    // TODO: subscription timestamp check
-
     // Zhong: verify the signature; resource consuming task put at last
     message_size = pkt_len - SIGNATURE_SIZE;
     ret = ed25519_authenticate(new_frame->signature, SIGNATURE_SIZE, (u_int8_t *)new_frame, message_size,
@@ -363,7 +359,23 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         print_error("Failed to decrypt frame - invalid signature\n");
         return -1;
     }
-    // Zhong: Looking for the persistent channel key
+    // Zhong: subscription timestamp check; though this operation can be merged into the following key lookup
+    // we seperate it here for safety issue
+    timestamp_t timestamp = new_frame->timestamp;
+    for (int i = 0; i < MAX_CHANNEL_COUNT; i++) {
+        if (decoder_status.subscribed_channels[i].id == channel) {
+            // Zhong: Pass the timestamp check for emergency channel
+            if ((timestamp < decoder_status.subscribed_channels[i].start_timestamp || 
+             timestamp > decoder_status.subscribed_channels[i].end_timestamp) && channel != EMERGENCY_CHANNEL) {
+                STATUS_LED_RED();
+                // goto failed_decoding;
+                print_error("Failed to decrypt frame - inactive subscription \n");
+                return -1;
+            }
+            break;
+        }
+    }
+    // Zhong: Ready for decryption.Looking for the persistent channel key
     for (int i = 0; i < MAX_CHANNEL_COUNT; i++) {
         if (decoder_status.subscribed_channels[i].id == channel) {
              memcpy(channel_key, decoder_status.subscribed_channels[i].channel_key, KEY_SIZE);
