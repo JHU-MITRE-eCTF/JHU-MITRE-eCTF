@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+// #include <stdatomic.h>
 #include "mxc_device.h"
 #include "status_led.h"
 #include "board.h"
@@ -165,6 +166,8 @@ typedef struct {
 flash_entry_t decoder_status;
 //Liz - this is to store the secrets in RAM
 secrets_t decoder_secrets;
+// Zhong - global timestamp
+static timestamp_t last_valid_timestamp = 0;
 
 /**********************************************************
  ******************* UTILITY FUNCTIONS ********************
@@ -355,7 +358,14 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     if (ret != 0) {
         STATUS_LED_RED();
         // goto failed_decoding;
-        print_error("Failed to decrypt frame - invalid signature\n");
+        print_error("Failed to verify the frame - invalid signature\n");
+        return -1;
+    }
+    // Zhong: global timestamp check
+    if (new_frame->timestamp <= last_valid_timestamp) {
+        STATUS_LED_RED();
+        // goto failed_decoding;
+        print_error("Failed to decrypt frame - invalid timestamp\n");
         return -1;
     }
     // Zhong: subscription timestamp check; though this operation can be merged into the following key lookup
@@ -394,6 +404,14 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
             return -1;
         }
     }
+    // Zhong: global timestamp check
+    if (new_frame->timestamp <= last_valid_timestamp) {
+        STATUS_LED_RED();
+        // goto failed_decoding;
+        print_error("Failed to decrypt frame - invalid timestamp\n");
+        return -1;
+    }
+    last_valid_timestamp = new_frame->timestamp;
     /* The reference design doesn't need any extra work to decode, but your design likely will.
     *  Do any extra decoding here before returning the result to the host. */
     write_packet(DECODE_MSG, decrypted_frame, new_frame->data_length);

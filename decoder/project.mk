@@ -41,3 +41,5 @@ ENTRY=firmware_startup
 # Enable Crypto Example
 CRYPTO_EXAMPLE=1
 PROJ_CFLAGS += -DHAVE_ED25519 -DWOLFSSL_SHA512 -DHAVE_AESGCM
+PROJ_CFLAGS += -fstack-protector-strong
+PROJ_CFLAGS += -fstack-clash-protection
