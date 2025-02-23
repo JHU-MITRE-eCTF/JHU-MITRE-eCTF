@@ -40,6 +40,34 @@ def load_secret(secrets_bytes: bytes) -> dict:
         "signature_private_key": ecc_private_key,
     }
 
+# def check_valid_channel(channels: list[int]):
+#     """Check if the channel is valid
+#     """
+#     checked_channels = []
+#     try:
+#         for channel in channels:
+#             if channel < 0 or channel > 8:
+#                 raise ValueError(f"Channel {channel} is invalid")
+#             checked_channels = list(set(channels))
+#             checked_channels.sort()
+#     except Exception:
+#         logger.critical(f"Channel {channel} is invalid")
+#         exit("Invalid channels")
+#     return checked_channels
+
+def channels_to_keys(channels: list[int]):
+    """ Check which channels are valid and need a key"""
+    # channel 0 is always valid
+    to_keys = [1] + [0 for _ in range(8)]
+    try:
+        for channel in channels:
+            if channel < 0 or channel > 8:
+                raise ValueError
+            to_keys[channel] = 1
+    except Exception:
+        logger.critical(f"Channel {channel} is invalid")
+        exit("Invalid channels")
+    return to_keys
 
 def gen_secrets(channels: list[int]) -> bytes:
     """Generate the contents secrets file
@@ -61,6 +89,10 @@ def gen_secrets(channels: list[int]) -> bytes:
             32 bytes: channel_key_2
             32 bytes: channel_key_3
             32 bytes: channel_key_4
+            32 bytes: channel_key_5
+            32 bytes: channel_key_6
+            32 bytes: channel_key_7
+            32 bytes: channel_key_8
             32 bytes: ecc_private_key
         
     """
@@ -68,9 +100,8 @@ def gen_secrets(channels: list[int]) -> bytes:
     """channel 0 is always assumed to be valid and will not be passed in the list
     https://rules.ectf.mitre.org/2025/specs/detailed_specs.html#:~:text=The%20function%20takes%20a%20list%20of%20channels%20that%20will%20be%20valid%20in%20the%20system%20and%20returns%20any%20secrets%20that%20will%20be%20passed%20to%20future%20steps.%20Channel%200%20is%20always%20assumed%20to%20be%20valid%20and%20will%20not%20be%20passed%20in%20the%20list.
     """
-    if 0 not in channels:
-        channels.insert(0, 0)
-    logger.debug(f"Generate secrets for channel {channels}")
+    channels = channels_to_keys(channels)
+    logger.debug(f"Generate secrets for channel {[i for i in range(len(channels)) if channels[i] == 1]}")
     # Generate secret keys used to encrypt frames for each channel
     # Use AES-256-GCM in the provided WolfSSL
     channel_keys_tuple = gen_channel_keys(channels)
@@ -82,7 +113,6 @@ def gen_secrets(channels: list[int]) -> bytes:
     # Pack secrets into secrets.bin following the format specification
     secrets_pack = struct.pack(f"<32s32s{len(channels) * '32s'}32s", \
         subscription_key, ecc_public_key, *channel_keys_tuple, ecc_private_key)
-    
     return secrets_pack
 
 def parse_args():

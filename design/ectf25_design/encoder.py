@@ -133,7 +133,12 @@ class Encoder:
 
         :returns: The encoded frame, which will be sent to the Decoder
         """
-        
+        try:
+            if self.channel_keys[channel] == b'\x00' * 32:
+                raise ValueError
+        except Exception:
+            exit(f"Channel {channel} is not supported!")
+            
         if channel == 0:
             # no encryption for channel 0
             nonce, ciphertext, tag = b'\x00', frame, b'\x00'

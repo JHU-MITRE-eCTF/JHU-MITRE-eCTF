@@ -16,7 +16,13 @@ def gen_subscription_key() -> bytes:
 
 def gen_channel_keys(channels: list[int]) -> tuple[bytes]:
     """Zhong - Generate the keys for each channel"""
-    return (gen_aes_key() for _ in channels)
+    key_tuples = ()
+    for i in channels:
+        if i == 0:
+            key_tuples += (b'\x00',)
+        else:
+            key_tuples += (gen_aes_key(),)
+    return key_tuples
 
 def gen_public_private_key_pair() -> tuple[bytes, bytes]:
     """ Generate the public/private key-pair 
