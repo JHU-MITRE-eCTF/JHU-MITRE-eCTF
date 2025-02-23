@@ -13,8 +13,8 @@ import argparse
 import struct
 from Crypto.Cipher import AES
 from Crypto.Signature import eddsa
-from gen_secrets import load_secret
-from utils import *
+from ectf25_design.gen_secrets import load_secret
+from ectf25_design.utils import *
 
 DEBUG_MODE = True
 

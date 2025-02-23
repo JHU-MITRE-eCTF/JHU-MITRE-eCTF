@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 import struct
 from loguru import logger
-from utils import *
+from ectf25_design.utils import *
 
 def load_secret(secrets_bytes: bytes) -> dict:
     """ Load the secrets from the secrets binary

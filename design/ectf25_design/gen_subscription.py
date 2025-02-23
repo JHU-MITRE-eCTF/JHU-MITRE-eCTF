@@ -14,8 +14,8 @@ import argparse
 import json
 from pathlib import Path
 import struct
-from gen_secrets import load_secret
-from utils import *
+from ectf25_design.gen_secrets import load_secret
+from ectf25_design.utils import *
 
 
 from loguru import logger
