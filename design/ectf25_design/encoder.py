@@ -134,7 +134,7 @@ class Encoder:
         :returns: The encoded frame, which will be sent to the Decoder
         """
         try:
-            if self.channel_keys[channel] == b'\x00' * 32:
+            if self.channel_keys[channel] == b'\x00' * 32 or channel < 0:
                 raise ValueError
         except Exception:
             exit(f"Channel {channel} is not supported!")

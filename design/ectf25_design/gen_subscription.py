@@ -49,6 +49,13 @@ def gen_subscription(
     """
     # Load secrets into a dictionary
     secrets = load_secret(secrets)
+    # check if channel is supported (not enabled when secret generation)
+    try:
+        if secrets["channel_keys"][channel] == b'\x00' * 32 or channel < 0:
+            raise ValueError
+    except Exception:
+        exit(f"Channel {channel} is not supported!")
+            
     
     #https://stackoverflow.com/questions/67307689/decrypt-an-encrypted-message-with-aes-gcm-in-python#:~:text=6,posted%20for%20encryption%3A
     aes_acm_packet = aes_gcm_encrypt(secrets["channel_keys"][channel], secrets["subscription_key"])
