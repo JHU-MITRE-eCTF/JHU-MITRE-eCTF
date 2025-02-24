@@ -25,19 +25,8 @@
 
 #include "simple_uart.h"
 
-/* Code between this #ifdef and the subsequent #endif will
-*  be ignored by the compiler if CRYPTO_EXAMPLE is not set in
-*  the projectk.mk file. */
-#ifdef CRYPTO_EXAMPLE
-/* The simple crypto example included with the reference design is intended
-*  to be an example of how you *may* use cryptography in your design. You
-*  are not limited nor required to use this interface in your design. It is
-*  recommended for newer teams to start by only using the simple crypto
-*  library until they have a working design. */
-
 #include "simple_crypto.h"
 
-# endif  //CRYPTO_EXAMPLE
 
 /**********************************************************
  ******************* PRIMITIVE TYPES **********************
@@ -263,6 +252,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     }
 
     int i;
+    int j;
     int ret;
     
     // Zhong: verify the signature
@@ -467,10 +457,6 @@ void init() {
     }
 }
 
-/* Code between this #ifdef and the subsequent #endif will
-*  be ignored by the compiler if CRYPTO_EXAMPLE is not set in
-*  the projectk.mk file. */
-#ifdef CRYPTO_EXAMPLE
 void crypto_example(void) {
     // Example of how to utilize included simple_crypto.h
 
@@ -509,7 +495,6 @@ int authenticate(const byte* sig, const byte* msg, const byte* pub_key) {
     return ed25519_authenticate(sig, SIG_SIZE, msg, MESSAGE_SIZE, 
                                 pub_key, PUB_KEY_SIZE);
 }
-#endif  //CRYPTO_EXAMPLE
 /**********************************************************
  *********************** MAIN LOOP ************************
  **********************************************************/
@@ -546,13 +531,6 @@ int main(void) {
         // Handle list command
         case LIST_MSG:
             STATUS_LED_CYAN();
-
-            #ifdef CRYPTO_EXAMPLE
-                // Run the crypto example
-                // TODO: Remove this from your design
-                // crypto_example();
-            #endif // CRYPTO_EXAMPLE
-
             list_channels();
             break;
 

@@ -11,7 +11,6 @@
  * @copyright Copyright (c) 2025 The MITRE Corporation
  */
 
-#ifdef CRYPTO_EXAMPLE
 #ifndef ECTF_CRYPTO_H
 #define ECTF_CRYPTO_H
 // #define HAVE_ED25519
@@ -119,4 +118,3 @@ int aes_gcm_decrypt(uint8_t *ciphertext, size_t ciphertext_len,
                      uint8_t *key, uint8_t *iv, uint8_t *tag, uint8_t *plaintext);
 
 #endif // ECTF_CRYPTO_H
-#endif // CRYPTO_EXAMPLE

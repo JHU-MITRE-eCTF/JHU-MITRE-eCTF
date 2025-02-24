@@ -11,7 +11,6 @@
  * @copyright Copyright (c) 2025 The MITRE Corporation
  */
 
-#ifdef CRYPTO_EXAMPLE
 #include "simple_crypto.h"
 #include <stdint.h>
 #include <string.h>
@@ -156,5 +155,3 @@ int aes_gcm_decrypt(uint8_t *ciphertext, size_t ciphertext_len,
     }
     return 0;
 }
-
-#endif  //CRYPTO_EXAMPLE
