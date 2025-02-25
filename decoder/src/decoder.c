@@ -22,11 +22,11 @@
 #include "mxc_delay.h"
 #include "simple_flash.h"
 #include "host_messaging.h"
-
 #include "simple_uart.h"
-
 #include "simple_crypto.h"
-
+//Liz - mxc_sys and i2c are included to disable unused board functions
+#include "mxc_sys.h"
+#include "i2c.h"
 
 /**********************************************************
  ******************* PRIMITIVE TYPES **********************
@@ -162,6 +162,15 @@ static timestamp_t last_valid_timestamp = 0;
  ******************* UTILITY FUNCTIONS ********************
  **********************************************************/
 
+ /*
+ * Function: disable_i2c (Liz)
+ * --------------------
+ * Disables the I2C peripheral, unused in this design
+ */
+void disable_i2c() {
+    MXC_SYS_ClockDisable(MXC_SYS_PERIPH_CLOCK_I2C0);  // Disable I2C0
+    MXC_SYS_ClockDisable(MXC_SYS_PERIPH_CLOCK_I2C1);  // Disable I2C1
+}
 /*
  * Function:  load_secrets (Zhong)
  * --------------------
@@ -176,11 +185,6 @@ void load_secrets() {
     memcpy(&decoder_secrets, secrets_bin_start, 64);
     print_debug("Loaded secrets from secrets file.\n");
 }
-
-/** @brief Loads secrets from flash into RAM - Liz
-  *   Reads subscription key, signature authentication key, and channel keys from flash.
-  * 
-*/
 
 /** @brief Checks whether the decoder is subscribed to a given channel
  *
@@ -418,6 +422,8 @@ void init() {
     int ret;
     // Initialize the flash peripheral to enable access to persistent memory
     flash_simple_init();
+    //Liz: Disable unused peripherals
+    disable_i2c();
 
     // Zhong: Load Secrets
     load_secrets();
