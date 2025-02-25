@@ -51,8 +51,7 @@ def gen_subscription(
     secrets = load_secret(secrets)
     # check if channel is supported (not enabled when secret generation)
     try:
-        if secrets["channel_keys"][channel] == b'\x00' * 32 or channel < 0:
-            raise ValueError
+        secrets["channel_keys"][channel]
     except Exception:
         exit(f"Channel {channel} is not supported!")
             

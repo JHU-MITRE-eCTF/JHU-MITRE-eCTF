@@ -34,86 +34,6 @@ class Encoder:
         self.sub_key = secrets["subscription_key"]
         self.sign_key_private = secrets["signature_private_key"]
         self.sign_key_public = secrets["signature_public_key"]
-
-    # def pad_bytes(self, frame: bytes, max_width: int) -> bytes:
-    #     """Pads the frame to the max_width number of bytes.
-    #     Rather than using null bytes (\0), which may be problematic
-    #     if the frame contains legitimate null bytes in the final 
-    #     x bytes, pad the frame with the number of bytes padded.
-    #     Example: For a 60-byte frame, we would pad the last 4 bytes 
-    #     with the bytevalue of 4 (\x04).
-
-    #     This ensures that all frames have a size of 64 bytes
-    #     to prevent leakage of the length of the data being
-    #     transmitted over the air from the uplink/satellite systems.
-
-    #     :param frame: Bytestring of <= 64 bytes
-    #     :param max_width: Length that the fame should be padded to
-
-    #     :returns: The padded frame, which will be encoded by encode()
-    #     """
-    #     # Check that the frame length is less than max_width
-    #     if len(frame) == max_width:
-    #         return frame
-
-    #     num_padded_bytes = max_width - len(frame)
-    #     if DEBUG_MODE:
-    #         print(f'Length of frame: {len(frame)}. Need {num_padded_bytes} bytes of padding.')
-        
-    #     for i in range(num_padded_bytes):
-    #         frame += bytes([ord(chr(num_padded_bytes))])
-        
-    #     return frame
-
-    # def encode(self, channel: int, frame: bytes, timestamp: int) -> bytes:
-    #     """The frame encoder function
-
-    #     This will be called for every frame that needs to be encoded before being
-    #     transmitted by the satellite to all listening TVs
-
-    #     You **may not** change the arguments or returns of this function!
-
-    #     :param channel: 16b unsigned channel number. Channel 0 is the emergency
-    #         broadcast that must be decodable by all channels.
-    #     :param frame: Frame to encode. Max frame size is 64 bytes.
-    #     :param timestamp: 64b timestamp to use for encoding. **NOTE**: This value may
-    #         have no relation to the current timestamp, so you should not compare it
-    #         against the current time. The timestamp is guaranteed to strictly
-    #         monotonically increase (always go up) with subsequent calls to encode
-
-    #     :returns: The encoded frame, which will be sent to the Decoder
-    #     """
-    #     # Combine the channel/timestamp + frame
-    #     # Ensure that the channel/timestamp metadata are padded to be 10 bytes
-    #     # 16 bits - channel num; 64 bits - timestamp
-    #     # TODO: Pad the frame to be up to 64 bytes, so payload is struct.pack("<IQ64s", channel, timestamp, frame)
-    #     payload = struct.pack("<IQ", channel, timestamp)
-    #     if DEBUG_MODE:
-    #         print(payload)
-    #         print(len(struct.pack("<IQ", channel, timestamp)))
-
-    #     # Encrypt payload using AES-256-GCM
-    #     encrypt_key = self.channel_keys[channel]
-    #     encrypt_key = bytes(bytearray.fromhex(encrypt_key))
-    #     assert len(encrypt_key) == 32
-
-    #     # Encrypted payload should be 74 bytes (64 bytes from frame, 8 bytes from timestamp, 2 bytes for channel num)
-    #     cipher = AES.new(encrypt_key, AES.MODE_GCM)
-    #     encrypted_frame = cipher.encrypt(self.pad_bytes(frame, 64))
-    #     final_payload = payload + encrypted_frame
-
-    #     # Sign payload using ED25519
-    #     signing_key = bytes(bytearray.fromhex(self.sign_key_private))
-    #     signing_key = eddsa.import_private_key(signing_key)
-    #     signer = eddsa.new(signing_key, 'rfc8032')     # https://datatracker.ietf.org/doc/html/rfc8032#section-3.2
-
-    #     # Signature should be 64 bytes long (!!)
-    #     signature = signer.sign(final_payload)
-
-    #     # Current implementation uses all 64 bytes, meaning we would be
-    #     # doubling the traffic. May need to consider using first/last x bytes
-    #     # going forward!
-    #     return final_payload + signature
     
     def encode(self, channel: int, frame: bytes, timestamp: int) -> bytes:
         """The frame encoder function
@@ -134,8 +54,7 @@ class Encoder:
         :returns: The encoded frame, which will be sent to the Decoder
         """
         try:
-            if self.channel_keys[channel] == b'\x00' * 32 or channel < 0:
-                raise ValueError
+            self.channel_keys[channel]
         except Exception:
             exit(f"Channel {channel} is not supported!")
             
