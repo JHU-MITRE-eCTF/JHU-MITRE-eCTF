@@ -35,7 +35,13 @@ ENV MAXIM_PATH=/root/msdk-2024_02
 
 WORKDIR /decoder
 
-ENTRYPOINT ["bash", "-c", "make release DECODER_ID=${DECODER_ID} && cp build/max78000.elf build/max78000.bin /out"]
+ENTRYPOINT ["bash", "-c", "dd if=/global.secrets/secrets.bin of=/out/secrets_decoder.bin bs=1 count=64 && cd /out && arm-none-eabi-objcopy -I binary -O elf32-littlearm -B arm secrets_decoder.bin secrets.o && arm-none-eabi-objcopy secrets.o --redefine-sym _binary_secrets_decoder_bin_start=secrets_bin_start  --redefine-sym _binary_secrets_decoder_bin_end=secrets_bin_end && cd /decoder && make release DECODER_ID=${DECODER_ID} && cp build/max78000.elf build/max78000.bin /out"]
 
 # Sample run command:
-# docker run --rm -v ./build_out:/out -v ./:/decoder -v ./secrets:/secrets -e DECODER_ID=0xdeadbeef decoder
+# docker run -v ./decoder/:/decoder -v ./global.secrets:/global.secrets:ro -v ./deadbeef_build:/out -e DECODER_ID=0xdeadbeef build-decoder
+
+# Zhong: for your convenience
+# build docker:
+# - `docker build -t decoder_new .`
+# decoder_id is passed here as 0x12345678:
+# - `docker run -v $(pwd)/decoder/:/decoder -v $(pwd)/global.secrets:/global.secrets:ro -v $(pwd)/12345678_build:/out -e DECODER_ID=0x12345678 decoder_new`

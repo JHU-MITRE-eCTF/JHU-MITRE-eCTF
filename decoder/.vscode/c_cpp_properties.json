@@ -1,0 +1,55 @@
+{
+  "configurations": [
+    {
+      "name": "macos-clang-arm64",
+      "includePath": [
+        "${workspaceFolder}/**"
+      ],
+      "defines": [
+        "${default}"
+      ],
+      "intelliSenseMode": "macos-clang-arm64",
+      "compilerPath": "/usr/bin/clang",
+      "browse": {
+        "path": [
+          "${default}"
+        ]
+      },
+      "cStandard": "${default}",
+      "cppStandard": "${default}"
+    },
+    {
+      "name": "Linux",
+      "includePath": [
+        "${default}"
+      ],
+      "defines": [
+        "${default}"
+      ],
+      "intelliSenseMode": "gcc-arm",
+      "compilerPath": "${config:ARM_GCC_path}/bin/arm-none-eabi-gcc",
+      "browse": {
+        "path": [
+          "${default}"
+        ]
+      }
+    },
+    {
+      "name": "Mac",
+      "includePath": [
+        "${default}"
+      ],
+      "defines": [
+        "${default}"
+      ],
+      "intelliSenseMode": "gcc-arm",
+      "compilerPath": "${config:ARM_GCC_path}/bin/arm-none-eabi-gcc",
+      "browse": {
+        "path": [
+          "${default}"
+        ]
+      }
+    }
+  ],
+  "version": 4
+}

@@ -14,9 +14,13 @@ import argparse
 import json
 from pathlib import Path
 import struct
+from ectf25_design.gen_secrets import load_secret
+from ectf25_design.utils import *
+
 
 from loguru import logger
 
+from Crypto.Cipher import AES
 
 def gen_subscription(
     secrets: bytes, device_id: int, start: int, end: int, channel: int
@@ -30,20 +34,39 @@ def gen_subscription(
     :param start: First timestamp the subscription is valid for
     :param end: Last timestamp the subscription is valid for
     :param channel: Channel to enable
+    
+    :returns: The encrypted subscription
+    :rtype: bytes
+    
+    :format specification for subscription.bin:
+    https://jhu-mitre-ectf.atlassian.net/wiki/spaces/BT/pages/3768335/Binary+Data+Format+Specifications
+        4 bytes: device_id (uint32_t)
+        8 bytes: start_timestamp (uint64_t)
+        8 bytes: end_timestamp (uint64_t)
+        4 bytes: channel (uint32_t)
+        60 bytes: encrypted_channel_key (12 bytes nounce + 32 bytes encrypted_key + 16 bytes tag)
+        64 bytes: ed25519_signature (sign device_id+start_timestamp+end_timestamp+channel+encrypted_channel_key)
     """
-    # TODO: Update this function to provide a Decoder with whatever data it needs to
-    #   subscribe to a new channel
-
-    # Load the json of the secrets file
-    secrets = json.loads(secrets)
-
-    # You can use secrets generated using `gen_secrets` here like:
-    # secrets["some_secrets"]
-    # Which would return "EXAMPLE" in the reference design.
-    # Please note that the secrets are READ ONLY at this sage!
-
+    # Load secrets into a dictionary
+    secrets = load_secret(secrets)
+    # check if channel is supported (not enabled when secret generation)
+    try:
+        if secrets["channel_keys"][channel] == b'\x00' * 32 or channel < 0:
+            raise ValueError
+    except Exception:
+        exit(f"Channel {channel} is not supported!")
+            
+    
+    #https://stackoverflow.com/questions/67307689/decrypt-an-encrypted-message-with-aes-gcm-in-python#:~:text=6,posted%20for%20encryption%3A
+    aes_acm_packet = aes_gcm_encrypt(secrets["channel_keys"][channel], secrets["subscription_key"])
+    assert len(aes_acm_packet) == 60, f"length error: aes_acm_packet length is {len(aes_acm_packet)}"
+    # sign the subscription
+    signature = ed25519_sign(struct.pack("<IQQI60s", device_id, start, end, channel, aes_acm_packet),\
+        secrets["signature_private_key"])
     # Pack the subscription. This will be sent to the decoder with ectf25.tv.subscribe
-    return struct.pack("<IQQI", device_id, start, end, channel)
+    ret = struct.pack("<IQQI60s64s", device_id, start, end, channel, aes_acm_packet, signature)
+    assert ed25519_verify(ret[-64:], ret[:-64], secrets["signature_public_key"]) == True, "signature generation error"
+    return ret
 
 
 def parse_args():
@@ -92,7 +115,7 @@ def main():
     # subscriptions in certain scenarios), but feel free to remove
     #
     # NOTE: Printing sensitive data is generally not good security practice
-    logger.debug(f"Generated subscription: {subscription}")
+    logger.debug(f"Generated subscription: {subscription}; subscription length: {len(subscription)}")
 
     # Open the file, erroring if the file exists unless the --force arg is provided
     with open(args.subscription_file, "wb" if args.force else "xb") as f:

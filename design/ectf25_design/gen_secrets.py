@@ -13,9 +13,61 @@ Copyright: Copyright (c) 2025 The MITRE Corporation
 import argparse
 import json
 from pathlib import Path
-
+import struct
 from loguru import logger
+from ectf25_design.utils import *
 
+def load_secret(secrets_bytes: bytes) -> dict:
+    """ Load the secrets from the secrets binary
+    
+        :param secrets: Path to the secrets file
+        :returns: Dictionary of the secrets
+            {
+                "subscription_key": subscription_key,
+                "signature_public_key": ecc_public_key,
+                "channel_keys": [CH1_KEY, CH2_KEY, ...],
+                "signature_private_key": ecc_private_key,
+            }
+    """
+    # calculate the number of channel keys
+    channel_key_num = len(secrets_bytes) // 32 - 3
+    subscription_key, ecc_public_key, *channel_keys_tuple, ecc_private_key \
+        = struct.unpack(f"<32s32s{channel_key_num * '32s'}32s", secrets_bytes)
+    return {
+        "subscription_key": subscription_key,
+        "signature_public_key": ecc_public_key,
+        "channel_keys": channel_keys_tuple,
+        "signature_private_key": ecc_private_key,
+    }
+
+# def check_valid_channel(channels: list[int]):
+#     """Check if the channel is valid
+#     """
+#     checked_channels = []
+#     try:
+#         for channel in channels:
+#             if channel < 0 or channel > 8:
+#                 raise ValueError(f"Channel {channel} is invalid")
+#             checked_channels = list(set(channels))
+#             checked_channels.sort()
+#     except Exception:
+#         logger.critical(f"Channel {channel} is invalid")
+#         exit("Invalid channels")
+#     return checked_channels
+
+def channels_to_keys(channels: list[int]):
+    """ Check which channels are valid and need a key"""
+    # channel 0 is always valid
+    to_keys = [1] + [0 for _ in range(8)]
+    try:
+        for channel in channels:
+            if channel < 0 or channel > 8:
+                raise ValueError
+            to_keys[channel] = 1
+    except Exception:
+        logger.critical(f"Channel {channel} is invalid")
+        exit("Invalid channels")
+    return to_keys
 
 def gen_secrets(channels: list[int]) -> bytes:
     """Generate the contents secrets file
@@ -28,23 +80,40 @@ def gen_secrets(channels: list[int]) -> bytes:
         NOT be included in this list
 
     :returns: Contents of the secrets file
+        :rtype: bytes
+        :format specification for secrets.bin:
+            32 bytes: subscription_key
+            32 bytes: ecc_public_key
+            32 bytes: channel_key_0
+            32 bytes: channel_key_1
+            32 bytes: channel_key_2
+            32 bytes: channel_key_3
+            32 bytes: channel_key_4
+            32 bytes: channel_key_5
+            32 bytes: channel_key_6
+            32 bytes: channel_key_7
+            32 bytes: channel_key_8
+            32 bytes: ecc_private_key
+        
     """
-    # TODO: Update this function to generate any system-wide secrets needed by
-    #   your design
+    
+    """channel 0 is always assumed to be valid and will not be passed in the list
+    https://rules.ectf.mitre.org/2025/specs/detailed_specs.html#:~:text=The%20function%20takes%20a%20list%20of%20channels%20that%20will%20be%20valid%20in%20the%20system%20and%20returns%20any%20secrets%20that%20will%20be%20passed%20to%20future%20steps.%20Channel%200%20is%20always%20assumed%20to%20be%20valid%20and%20will%20not%20be%20passed%20in%20the%20list.
+    """
+    channels = channels_to_keys(channels)
+    logger.debug(f"Generate secrets for channel {[i for i in range(len(channels)) if channels[i] == 1]}")
+    # Generate secret keys used to encrypt frames for each channel
+    # Use AES-256-GCM in the provided WolfSSL
+    channel_keys_tuple = gen_channel_keys(channels)
+    #  Generate subscription key to encrypt the subscription.bin file
+    subscription_key = gen_subscription_key()
+    # Generate the public/private key-pair used to sign each
+    ecc_public_key, ecc_private_key = gen_public_private_key_pair()
 
-    # Create the secrets object
-    # You can change this to generate any secret material
-    # The secrets file will never be shared with attackers
-    secrets = {
-        "channels": channels,
-        "some_secrets": "EXAMPLE",
-    }
-
-    # NOTE: if you choose to use JSON for your file type, you will not be able to
-    # store binary data, and must either use a different file type or encode the
-    # binary data to hex, base64, or another type of ASCII-only encoding
-    return json.dumps(secrets).encode()
-
+    # Pack secrets into secrets.bin following the format specification
+    secrets_pack = struct.pack(f"<32s32s{len(channels) * '32s'}32s", \
+        subscription_key, ecc_public_key, *channel_keys_tuple, ecc_private_key)
+    return secrets_pack
 
 def parse_args():
     """Define and parse the command line arguments
@@ -87,7 +156,7 @@ def main():
     # Attackers will NOT have access to the output of this, but feel free to remove
     #
     # NOTE: Printing sensitive data is generally not good security practice
-    logger.debug(f"Generated secrets: {secrets}")
+    logger.debug(f"Generated secrets: {secrets}; length: {len(secrets)}")
 
     # Open the file, erroring if the file exists unless the --force arg is provided
     with open(args.secrets_file, "wb" if args.force else "xb") as f:
@@ -100,3 +169,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+# python design/ectf25_design/gen_secrets.py secrets/secrets.bin 1 2 3 4 --force
