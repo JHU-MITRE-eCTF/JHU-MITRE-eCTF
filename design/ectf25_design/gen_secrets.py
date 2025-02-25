@@ -42,13 +42,13 @@ def load_secret(secrets_bytes: bytes) -> dict:
 
 def channels_check(channels: list[int]) -> list[int]:
     """ Zhong: Check which channels are valid"""
-    if len(channels) > 9:
-        exit("Too many channels")
+    # if len(channels) > 9:
+    #     exit("Too many channels")
     try:
-        channels.insert(0, 0)
+        # channels.insert(0, 0)
         channels_set = list(set(channels))
-        if len(channels_set) > 9:
-            raise ValueError
+        # if len(channels_set) > 9:
+        #     raise ValueError
         for channel in channels_set:
             struct.pack("I", channel)
     except Exception as e:
