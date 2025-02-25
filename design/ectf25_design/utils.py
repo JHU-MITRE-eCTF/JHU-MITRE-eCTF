@@ -4,6 +4,7 @@ from Crypto.PublicKey import ECC
 from Crypto.Random import get_random_bytes
 from nacl.signing import VerifyKey
 from Crypto.Cipher import AES
+import struct
 
 #Liz - Adding a function to generate private 256-bit AES keys.
 def gen_aes_key() -> bytes:
@@ -14,20 +15,40 @@ def gen_aes_key() -> bytes:
 def gen_subscription_key() -> bytes:
     return gen_aes_key()
 
-def gen_channel_keys(channels: list[int]) -> tuple[bytes]:
-    """Zhong - Generate the keys for each channel"""
-    key_tuples = ()
-    for i in channels:
-        if i == 0:
-            key_tuples += (b'\x00',)
+def gen_channel_keys_packets(channels: list[int]) -> tuple[bytes]:
+    """Zhong - Generate the keys for each channel
+       return: Tuple of (channel_id + channel_key): 36 bytes for each pair
+       channel_id: 4 bytes
+       channel_key: 32 bytes
+    """
+    key_packet_tuples = ()
+    for channel_id in channels:
+        if channel_id == 0:
+            key_packet_tuples += (struct.pack("<I32s", channel_id, b'\x00' * 32), )
         else:
-            key_tuples += (gen_aes_key(),)
-    return key_tuples
+            key_packet_tuples += (struct.pack("<I32s", channel_id, gen_aes_key()),)
+    return key_packet_tuples
+
+def unpack_channel_keys_packet(packet_tuple: tuple[bytes]) -> dict[int, bytes]:
+    """ Zhong - Unpack the channel keys packet
+        :param packet_tuple: Tuple of (channel_id + channel_key): 36 bytes for each pair
+        channel_id: 4 bytes
+        channel_key: 32 bytes
+        :returns: Dictionary of channel_id -> channel_key
+    """
+    channel_keys = {}
+    for packet in packet_tuple:
+        channel_id, channel_key = struct.unpack("<I32s", packet)
+        channel_keys[channel_id] = channel_key
+    return channel_keys
 
 def gen_public_private_key_pair() -> tuple[bytes, bytes]:
     """ Generate the public/private key-pair 
         used to sign each frame so that the decoder can verify the frames originated from
         our encoder and subscription updates
+        Reference: https://pycryptodome.readthedocs.io/en/latest/src/public_key/ecc.html#Crypto.PublicKey.ECC.EccKey
+        
+    :returns: Tuple of (public_key, private_key)
         Reference: https://pycryptodome.readthedocs.io/en/latest/src/public_key/ecc.html#Crypto.PublicKey.ECC.EccKey
         
     :returns: Tuple of (public_key, private_key)

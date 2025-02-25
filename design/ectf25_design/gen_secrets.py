@@ -25,49 +25,36 @@ def load_secret(secrets_bytes: bytes) -> dict:
             {
                 "subscription_key": subscription_key,
                 "signature_public_key": ecc_public_key,
-                "channel_keys": [CH1_KEY, CH2_KEY, ...],
+                "channel_keys": {channel_id_32_uint: channel_key_32_bytes, ...},
                 "signature_private_key": ecc_private_key,
             }
     """
     # calculate the number of channel keys
-    channel_key_num = len(secrets_bytes) // 32 - 3
-    subscription_key, ecc_public_key, *channel_keys_tuple, ecc_private_key \
-        = struct.unpack(f"<32s32s{channel_key_num * '32s'}32s", secrets_bytes)
+    channel_key_num = (len(secrets_bytes) - 3 * 32) // 36
+    subscription_key, ecc_public_key, *channel_keys_packet_tuple, ecc_private_key \
+        = struct.unpack(f"<32s32s{channel_key_num * '36s'}32s", secrets_bytes)
     return {
         "subscription_key": subscription_key,
         "signature_public_key": ecc_public_key,
-        "channel_keys": channel_keys_tuple,
+        "channel_keys": unpack_channel_keys_packet(channel_keys_packet_tuple),
         "signature_private_key": ecc_private_key,
     }
 
-# def check_valid_channel(channels: list[int]):
-#     """Check if the channel is valid
-#     """
-#     checked_channels = []
-#     try:
-#         for channel in channels:
-#             if channel < 0 or channel > 8:
-#                 raise ValueError(f"Channel {channel} is invalid")
-#             checked_channels = list(set(channels))
-#             checked_channels.sort()
-#     except Exception:
-#         logger.critical(f"Channel {channel} is invalid")
-#         exit("Invalid channels")
-#     return checked_channels
-
-def channels_to_keys(channels: list[int]):
-    """ Check which channels are valid and need a key"""
-    # channel 0 is always valid
-    to_keys = [1] + [0 for _ in range(8)]
+def channels_check(channels: list[int]) -> list[int]:
+    """ Zhong: Check which channels are valid"""
+    if len(channels) > 9:
+        exit("Too many channels")
     try:
-        for channel in channels:
-            if channel < 0 or channel > 8:
-                raise ValueError
-            to_keys[channel] = 1
-    except Exception:
-        logger.critical(f"Channel {channel} is invalid")
+        channels.insert(0, 0)
+        channels_set = list(set(channels))
+        if len(channels_set) > 9:
+            raise ValueError
+        for channel in channels_set:
+            struct.pack("I", channel)
+    except Exception as e:
+        logger.critical(f"Channel {channel} is invalid: {e}")
         exit("Invalid channels")
-    return to_keys
+    return channels_set
 
 def gen_secrets(channels: list[int]) -> bytes:
     """Generate the contents secrets file
@@ -84,15 +71,15 @@ def gen_secrets(channels: list[int]) -> bytes:
         :format specification for secrets.bin:
             32 bytes: subscription_key
             32 bytes: ecc_public_key
-            32 bytes: channel_key_0
-            32 bytes: channel_key_1
-            32 bytes: channel_key_2
-            32 bytes: channel_key_3
-            32 bytes: channel_key_4
-            32 bytes: channel_key_5
-            32 bytes: channel_key_6
-            32 bytes: channel_key_7
-            32 bytes: channel_key_8
+            36 bytes: channel_id + channel_key
+            36 bytes: channel_id + channel_key
+            36 bytes: channel_id + channel_key
+            36 bytes: channel_id + channel_key
+            36 bytes: channel_id + channel_key
+            36 bytes: channel_id + channel_key
+            36 bytes: channel_id + channel_key
+            36 bytes: channel_id + channel_key
+            36 bytes: channel_id + channel_key
             32 bytes: ecc_private_key
         
     """
@@ -100,19 +87,19 @@ def gen_secrets(channels: list[int]) -> bytes:
     """channel 0 is always assumed to be valid and will not be passed in the list
     https://rules.ectf.mitre.org/2025/specs/detailed_specs.html#:~:text=The%20function%20takes%20a%20list%20of%20channels%20that%20will%20be%20valid%20in%20the%20system%20and%20returns%20any%20secrets%20that%20will%20be%20passed%20to%20future%20steps.%20Channel%200%20is%20always%20assumed%20to%20be%20valid%20and%20will%20not%20be%20passed%20in%20the%20list.
     """
-    channels = channels_to_keys(channels)
-    logger.debug(f"Generate secrets for channel {[i for i in range(len(channels)) if channels[i] == 1]}")
+    channels = channels_check(channels)
+    logger.debug(f"Generate secrets for channel {[channel_id for channel_id in channels]}")
     # Generate secret keys used to encrypt frames for each channel
     # Use AES-256-GCM in the provided WolfSSL
-    channel_keys_tuple = gen_channel_keys(channels)
+    channel_keys_packet_tuple = gen_channel_keys_packets(channels)
     #  Generate subscription key to encrypt the subscription.bin file
     subscription_key = gen_subscription_key()
     # Generate the public/private key-pair used to sign each
     ecc_public_key, ecc_private_key = gen_public_private_key_pair()
 
     # Pack secrets into secrets.bin following the format specification
-    secrets_pack = struct.pack(f"<32s32s{len(channels) * '32s'}32s", \
-        subscription_key, ecc_public_key, *channel_keys_tuple, ecc_private_key)
+    secrets_pack = struct.pack(f"<32s32s{len(channels) * '36s'}32s", \
+        subscription_key, ecc_public_key, *channel_keys_packet_tuple, ecc_private_key)
     return secrets_pack
 
 def parse_args():
