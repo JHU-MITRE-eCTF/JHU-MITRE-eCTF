@@ -274,7 +274,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     // Zhong: verify the decoder ID
     if (DECODER_ID != update->decoder_id) {
         STATUS_LED_RED();
-        print_error("Failed to update subscription - invalid decoder ID\n");
+        print_error("Failed to update subscription - invalid decoder ID. Expected %u, got %u\n", DECODER_ID, update->decoder_id);
         return -1;
     }
 
