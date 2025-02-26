@@ -53,7 +53,7 @@ def gen_subscription(
     try:
         secrets["channel_keys"][channel]
     except Exception:
-        exit(f"Channel {channel} is not supported!")
+        raise ValueError(f"Channel {channel} is not supported!")
             
     
     #https://stackoverflow.com/questions/67307689/decrypt-an-encrypted-message-with-aes-gcm-in-python#:~:text=6,posted%20for%20encryption%3A
