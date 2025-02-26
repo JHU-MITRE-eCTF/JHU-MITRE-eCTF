@@ -53,7 +53,7 @@ def channels_check(channels: list[int]) -> list[int]:
             struct.pack("I", channel)
     except Exception as e:
         logger.critical(f"Channel {channel} is invalid: {e}")
-        exit("Invalid channels")
+        raise ValueError(f"Channel {channel} is invalid: {e}")
     return channels_set
 
 def gen_secrets(channels: list[int]) -> bytes:

@@ -56,7 +56,7 @@ class Encoder:
         try:
             self.channel_keys[channel]
         except Exception:
-            exit(f"Channel {channel} is not supported!")
+            raise ValueError(f"Channel {channel} is not supported!")
             
         if channel == 0:
             # no encryption for channel 0
