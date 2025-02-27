@@ -45,7 +45,7 @@ def channels_check(channels: list[int]) -> list[int]:
     # if len(channels) > 9:
     #     exit("Too many channels")
     try:
-        # channels.insert(0, 0)
+        channels.insert(0, 0)
         channels_set = list(set(channels))
         # if len(channels_set) > 9:
         #     raise ValueError
