@@ -254,8 +254,6 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
         print_error("Failed to update subscription - cannot subscribe to emergency channel\n");
         return -1;
     }
-
-    char output_buf[128] = {0};
     int i;
     int ret;
     
@@ -274,11 +272,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     // Zhong: verify the decoder ID
     if (DECODER_ID != update->decoder_id) {
         STATUS_LED_RED();
-        sprintf(
-            output_buf,
-            "Failed to update subscription - invalid decoder ID. Expected %u, got %u\n", DECODER_ID, update->decoder_id);
-        // goto failed_decoding;
-        print_error(output_buf);
+        print_error("Failed to update subscription - invalid decoder ID.\n");
         return -1;
     }
 
@@ -344,7 +338,6 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         sprintf(
             output_buf,
             "Receiving unsubscribed channel data.  %u\n", channel);
-        // goto failed_decoding;
         print_error(output_buf);
         return -1;
     }
@@ -355,14 +348,12 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     // Zhong: if invalid signature, return error
     if (ret != 0) {
         STATUS_LED_RED();
-        // goto failed_decoding;
         print_error("Failed to verify the frame - invalid signature\n");
         return -1;
     }
     // Zhong: global timestamp check
     if (new_frame->timestamp <= last_valid_timestamp) {
         STATUS_LED_RED();
-        // goto failed_decoding;
         print_error("Failed to decrypt frame - invalid timestamp\n");
         return -1;
     }
@@ -375,7 +366,6 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
             if ((timestamp < decoder_status.subscribed_channels[i].start_timestamp || 
              timestamp > decoder_status.subscribed_channels[i].end_timestamp) && channel != EMERGENCY_CHANNEL) {
                 STATUS_LED_RED();
-                // goto failed_decoding;
                 print_error("Failed to decrypt frame - inactive subscription \n");
                 return -1;
             }
@@ -397,7 +387,6 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
                         channel_key, (uint8_t *)new_frame->data.nonce, (uint8_t *)new_frame->data.tag, (uint8_t *)decrypted_frame);
         if (ret != 0) {
             STATUS_LED_RED();
-            // goto failed_decoding;
             print_error("Failed to decrypt frame - invalid channel key\n");
             return -1;
         }
@@ -405,7 +394,6 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     // Zhong: global timestamp check
     if (new_frame->timestamp <= last_valid_timestamp) {
         STATUS_LED_RED();
-        // goto failed_decoding;
         print_error("Failed to decrypt frame - invalid timestamp\n");
         return -1;
     }
@@ -414,10 +402,6 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     *  Do any extra decoding here before returning the result to the host. */
     write_packet(DECODE_MSG, decrypted_frame, new_frame->data_length);
     return 0;
-
-    failed_decoding:
-        write_packet(DECODE_MSG, new_frame->data.ciphertext, new_frame->data_length);
-        return -1;
 }
 
 /** @brief Initializes peripherals for system boot.
