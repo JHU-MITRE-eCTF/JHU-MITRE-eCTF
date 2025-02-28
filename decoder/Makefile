@@ -230,7 +230,7 @@ endif
 # Set default compiler optimization levels
 ifeq "$(MAKECMDGOALS)" "release"
 # Default optimization level for "release" builds (make release)
-MXC_OPTIMIZE_CFLAGS ?= -O2
+MXC_OPTIMIZE_CFLAGS ?= -O3
 DEBUG = 0
 endif
 

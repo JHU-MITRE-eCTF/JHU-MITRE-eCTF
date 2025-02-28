@@ -5,13 +5,7 @@
 # For instructions on how to use this system, see
 # https://analog-devices-msdk.github.io/msdk/USERGUIDE/#build-system
 
-#MXC_OPTIMIZE_CFLAGS = -Og
-# ^ For example, you can uncomment this line to 
-# optimize the project for debugging
-
 # **********************************************************
-
-# Add your config here!
 
 # This example is only compatible with the FTHR board,
 # so we override the BOARD value to hard-set it.
@@ -22,6 +16,7 @@ IPATH+=../deployment
 IPATH+=inc/
 VPATH+=src/
 PROJ_OBJS+=/out/secrets.o
+
 # ****************** eCTF Bootloader *******************
 # DO NOT REMOVE
 LINKERFILE=firmware.ld
@@ -29,11 +24,7 @@ STARTUPFILE=startup_firmware.S
 ENTRY=firmware_startup
 
 # ****************** eCTF Crypto Example *******************
-# Uncomment the commented lines below and comment the disable
-# lines to enable the eCTF Crypto Example.
-# WolfSSL must be included in this directory as wolfssl/
-# WolfSSL can be downloaded from: https://www.wolfssl.com/download/
-
 PROJ_CFLAGS += -DHAVE_ED25519 -DWOLFSSL_SHA512 -DHAVE_AESGCM
-PROJ_CFLAGS += -fstack-protector-strong
-PROJ_CFLAGS += -fstack-clash-protection
+PROJ_CFLAGS += -DWC_RSA_BLINDING -DECC_TIMING_RESISTANT -DTFM_TIMING_RESISTANT
+# PROJ_CFLAGS += -fstack-protector-strong
+# PROJ_CFLAGS += -fstack-clash-protection

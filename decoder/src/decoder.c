@@ -325,7 +325,6 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
 int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     char output_buf[128] = {0};
     u_int8_t channel_key[KEY_SIZE] = {0};
-    uint16_t frame_size = new_frame->data_length;
     channel_id_t channel = new_frame->channel;
     unsigned int message_size;
     u_int8_t decrypted_frame[new_frame->data_length];
