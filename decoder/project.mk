@@ -24,7 +24,6 @@ STARTUPFILE=startup_firmware.S
 ENTRY=firmware_startup
 
 # ****************** eCTF Crypto Example *******************
+PROJ_CFLAGS += -DWOLFSSL_USE_OPTIONS_H
 PROJ_CFLAGS += -DHAVE_ED25519 -DWOLFSSL_SHA512 -DHAVE_AESGCM
 PROJ_CFLAGS += -DWC_RSA_BLINDING -DECC_TIMING_RESISTANT -DTFM_TIMING_RESISTANT
-# PROJ_CFLAGS += -fstack-protector-strong
-# PROJ_CFLAGS += -fstack-clash-protection
