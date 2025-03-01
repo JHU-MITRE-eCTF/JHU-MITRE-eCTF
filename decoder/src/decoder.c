@@ -255,34 +255,37 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
         return -1;
     }
     int i;
-    int ret;
+    int auth_ret = 1;
+    int decrypt_ret = 1;
+    int decode_ret = 1;
     
     // Zhong: verify the signature
-    unsigned int msgSz = sizeof(subscription_update_packet_t) - SIGNATURE_SIZE;
-    ret = ed25519_authenticate(update->signature, SIGNATURE_SIZE, (u_int8_t *)update, msgSz,
+    unsigned int message = sizeof(subscription_update_packet_t) - SIGNATURE_SIZE;
+    auth_ret = ed25519_authenticate(update->signature, SIGNATURE_SIZE, (u_int8_t *)update, message,
                  decoder_secrets.signature_public_key, KEY_SIZE);
-
     // Zhong: if invalid signature, return error
-    if (ret != 0) {
+    if (auth_ret != 0) {
         STATUS_LED_RED();
         print_error("Failed to update subscription - invalid signature\n");
         return -1;
     }
     
     // Zhong: verify the decoder ID
-    if (DECODER_ID != update->decoder_id) {
+    decode_ret = (DECODER_ID != update->decoder_id);
+    if (decode_ret != 0) {
         STATUS_LED_RED();
         print_error("Failed to update subscription - invalid decoder ID.\n");
         return -1;
     }
 
     // Zhong: Decrypt the subscription to get channel key
-    u_int8_t channel_key[KEY_SIZE];
-    ret = aes_gcm_decrypt((uint8_t *)update->encrypted_channel_key.ciphertext, KEY_SIZE,
+    u_int8_t channel_key[KEY_SIZE] = {0};
+    decrypt_ret = aes_gcm_decrypt((uint8_t *)update->encrypted_channel_key.ciphertext, KEY_SIZE,
                      decoder_secrets.subscription_key, (uint8_t *)update->encrypted_channel_key.nonce, (uint8_t *)update->encrypted_channel_key.tag, (uint8_t *)channel_key);
-    if (ret != 0) {
+    if (auth_ret != 0 || decrypt_ret != 0 || decode_ret != 0) {
         STATUS_LED_RED();
         print_error("Failed to update subscription - invalid subscription key\n");
+        secure_wipe(channel_key, KEY_SIZE);
         return -1;
     }
 
@@ -295,6 +298,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
             decoder_status.subscribed_channels[i].end_timestamp = update->end_timestamp;
             // Zhong: Store the channel key
             memcpy(decoder_status.subscribed_channels[i].channel_key, channel_key, KEY_SIZE);
+            secure_wipe(channel_key, KEY_SIZE);
             break;
         }
     }
@@ -303,6 +307,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     if (i == MAX_CHANNEL_COUNT) {
         STATUS_LED_RED();
         print_error("Failed to update subscription - max subscriptions installed\n");
+        secure_wipe(channel_key, KEY_SIZE);
         return -1;
     }
 
@@ -310,6 +315,8 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     flash_simple_write(FLASH_STATUS_ADDR, &decoder_status, sizeof(flash_entry_t));
     // Success message with an empty body
     write_packet(SUBSCRIBE_MSG, NULL, 0);
+
+    secure_wipe(channel_key, KEY_SIZE);
     return 0;
 }
 
@@ -420,6 +427,10 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
 
     // Zhong: Send the decrypted frame to host
     write_packet(DECODE_MSG, decrypted_frame, new_frame->data_length);
+
+    // Zhong: Clean up
+    secure_wipe(channel_key, KEY_SIZE);
+    secure_wipe(decrypted_frame, FRAME_SIZE);
     return 0;
 }
 
