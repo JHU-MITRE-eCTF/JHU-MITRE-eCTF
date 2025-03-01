@@ -340,13 +340,10 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
 
     // Zhong: verify the signature; repeated computation against fault injection
     message_size = pkt_len - SIGNATURE_SIZE;
-    int auth1 = ed25519_authenticate(new_frame->signature, SIGNATURE_SIZE, (u_int8_t *)new_frame, message_size,
-                 decoder_secrets.signature_public_key, KEY_SIZE);
-    int auth2 = ed25519_authenticate(new_frame->signature, SIGNATURE_SIZE, (u_int8_t *)new_frame, message_size,
+    int auth_ret = ed25519_authenticate(new_frame->signature, SIGNATURE_SIZE, (u_int8_t *)new_frame, message_size,
                  decoder_secrets.signature_public_key, KEY_SIZE);
     // Zhong: if invalid signature, return error
-    int auth_result = auth1 | auth2;
-    if (auth_result != 0) {
+    if (auth_ret != 0) {
         STATUS_LED_RED();
         print_error("Failed to verify the frame - invalid signature\n");
         return -1;
@@ -384,7 +381,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         }
     }
     // Zhong: fault injection check
-    if (auth_result | time_check | !subscribed | sub_time_valid) {
+    if (auth_ret | time_check | !subscribed | (sub_time_valid && channel != EMERGENCY_CHANNEL)) {
         STATUS_LED_RED();
         print_error("Failed to decrypt frame - potential fault injection detected\n");
         return -1;
