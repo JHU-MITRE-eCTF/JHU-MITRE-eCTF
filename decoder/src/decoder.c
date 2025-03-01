@@ -326,13 +326,41 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     char output_buf[128] = {0};
     u_int8_t channel_key[KEY_SIZE] = {0};
     channel_id_t channel = new_frame->channel;
-    unsigned int message_size;
-    u_int8_t decrypted_frame[new_frame->data_length];
-    int ret;
+    unsigned int message_size = 0;
+    u_int8_t sub_time_valid = 1;
+    u_int8_t decrypted_frame[FRAME_SIZE] = {0};
+    int ret = -1;
 
+    // Zhong: Input Validation
+    if (new_frame->data_length != pkt_len - 12 - 16 - SIGNATURE_SIZE - 4 - 8 - 1 || new_frame->data_length < 0 || new_frame->data_length > FRAME_SIZE) {
+        STATUS_LED_RED();
+        print_error("Failed to decrypt frame - invalid data length\n");
+        return -1;
+    }
+
+    // Zhong: verify the signature; repeated computation against fault injection
+    message_size = pkt_len - SIGNATURE_SIZE;
+    int auth1 = ed25519_authenticate(new_frame->signature, SIGNATURE_SIZE, (u_int8_t *)new_frame, message_size,
+                 decoder_secrets.signature_public_key, KEY_SIZE);
+    int auth2 = ed25519_authenticate(new_frame->signature, SIGNATURE_SIZE, (u_int8_t *)new_frame, message_size,
+                 decoder_secrets.signature_public_key, KEY_SIZE);
+    // Zhong: if invalid signature, return error
+    int auth_result = auth1 | auth2;
+    if (auth_result != 0) {
+        STATUS_LED_RED();
+        print_error("Failed to verify the frame - invalid signature\n");
+        return -1;
+    }
+    // Zhong: global timestamp check
+    int time_check = new_frame->timestamp <= last_valid_timestamp;
+    if (time_check != 0) {
+        STATUS_LED_RED();
+        print_error("Failed to decrypt frame - invalid timestamp\n");
+        return -1;
+    }
     // Check that we are subscribed to the channel
-    print_debug("Checking subscription\n");
-    if (!is_subscribed(channel)) {
+    int subscribed = is_subscribed(channel);
+    if (subscribed != 1) {
         STATUS_LED_RED();
         sprintf(
             output_buf,
@@ -340,36 +368,26 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         print_error(output_buf);
         return -1;
     }
-    // Zhong: verify the signature; resource consuming task put at last
-    message_size = pkt_len - SIGNATURE_SIZE;
-    ret = ed25519_authenticate(new_frame->signature, SIGNATURE_SIZE, (u_int8_t *)new_frame, message_size,
-                 decoder_secrets.signature_public_key, KEY_SIZE);
-    // Zhong: if invalid signature, return error
-    if (ret != 0) {
-        STATUS_LED_RED();
-        print_error("Failed to verify the frame - invalid signature\n");
-        return -1;
-    }
-    // Zhong: global timestamp check
-    if (new_frame->timestamp <= last_valid_timestamp) {
-        STATUS_LED_RED();
-        print_error("Failed to decrypt frame - invalid timestamp\n");
-        return -1;
-    }
     // Zhong: subscription timestamp check; though this operation can be merged into the following key lookup
     // we seperate it here for safety issue
-    timestamp_t timestamp = new_frame->timestamp;
     for (int i = 0; i < MAX_CHANNEL_COUNT; i++) {
         if (decoder_status.subscribed_channels[i].id == channel) {
             // Zhong: Pass the timestamp check for emergency channel
-            if ((timestamp < decoder_status.subscribed_channels[i].start_timestamp || 
-             timestamp > decoder_status.subscribed_channels[i].end_timestamp) && channel != EMERGENCY_CHANNEL) {
+            sub_time_valid = new_frame->timestamp < decoder_status.subscribed_channels[i].start_timestamp || 
+             new_frame->timestamp > decoder_status.subscribed_channels[i].end_timestamp;
+            if (sub_time_valid && channel != EMERGENCY_CHANNEL) {
                 STATUS_LED_RED();
                 print_error("Failed to decrypt frame - inactive subscription \n");
                 return -1;
             }
             break;
         }
+    }
+    // Zhong: fault injection check
+    if (auth_result | time_check | !subscribed | sub_time_valid) {
+        STATUS_LED_RED();
+        print_error("Failed to decrypt frame - potential fault injection detected\n");
+        return -1;
     }
     // Zhong: Ready for decryption.Looking for the persistent channel key
     for (int i = 0; i < MAX_CHANNEL_COUNT; i++) {
@@ -387,18 +405,23 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         if (ret != 0) {
             STATUS_LED_RED();
             print_error("Failed to decrypt frame - invalid channel key\n");
+            secure_wipe(channel_key, KEY_SIZE);
+            secure_wipe(decrypted_frame, sizeof(decrypted_frame));
             return -1;
         }
     }
-    // Zhong: global timestamp check
+    // Zhong: global timestamp check before rewrite
     if (new_frame->timestamp <= last_valid_timestamp) {
         STATUS_LED_RED();
-        print_error("Failed to decrypt frame - invalid timestamp\n");
+        print_error("Failed to decrypt frame - invalid timestamp - chaos\n");
+        secure_wipe(channel_key, KEY_SIZE);
+        secure_wipe(decrypted_frame, sizeof(decrypted_frame));
         return -1;
     }
+    // Zhong: Update global state after all checks
     last_valid_timestamp = new_frame->timestamp;
-    /* The reference design doesn't need any extra work to decode, but your design likely will.
-    *  Do any extra decoding here before returning the result to the host. */
+
+    // Zhong: Send the decrypted frame to host
     write_packet(DECODE_MSG, decrypted_frame, new_frame->data_length);
     return 0;
 }

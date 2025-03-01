@@ -35,6 +35,14 @@
 #define AUTH_TAG_SIZE 16
 #define KEY_SIZE 32
 
+// Zhong: Secure wipe
+// Add secure memset zero macro (place near top after includes)
+#define secure_wipe(buf, len) do { \
+    volatile uint8_t *p = (volatile uint8_t *)(buf); \
+    size_t _len = (len); \
+    while (_len--) *p++ = 0; \
+} while(0)
+
 // Yi: reference https://github.com/wolfSSL/wolfssl/blob/master/doc/dox_comments/header_files/ed25519.h#L345
 /** @brief Verifies a digital signature using Ed25519
  *
