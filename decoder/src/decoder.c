@@ -267,7 +267,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     if (auth_ret != 0) {
         STATUS_LED_RED();
         print_error("Failed to update subscription - invalid signature\n");
-        // TODO: Catch attacker
+        // Catch attacker
         HALT_AND_CATCH_FIRE();
         return -1;
     }
@@ -277,7 +277,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     if (decode_ret != 0) {
         STATUS_LED_RED();
         print_error("Failed to update subscription - invalid decoder ID.\n");
-        // TODO: Catch attacker
+        // Catch attacker
         HALT_AND_CATCH_FIRE();
         return -1;
     }
@@ -290,6 +290,8 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
         STATUS_LED_RED();
         print_error("Failed to update subscription - invalid subscription key\n");
         secure_wipe(channel_key, KEY_SIZE);
+        // Catch attacker
+        HALT_AND_CATCH_FIRE();
         return -1;
     }
 
@@ -345,7 +347,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     // Zhong: Input Validation
     if (new_frame->data_length != pkt_len - 12 - 16 - SIGNATURE_SIZE - 4 - 8 - 1 || new_frame->data_length < 0 || new_frame->data_length > FRAME_SIZE) {
         STATUS_LED_RED();
-        // TODO: Catch attacker
+        // Catch attacker
         print_error("Failed to decrypt frame - invalid data length\n");
         HALT_AND_CATCH_FIRE();
         return -1;
@@ -359,7 +361,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     if (auth_ret != 0) {
         STATUS_LED_RED();
         print_error("Failed to verify the frame - invalid signature\n");
-        // TODO: Catch attacker
+        // Catch attacker
         HALT_AND_CATCH_FIRE();
         return -1;
     }
@@ -399,7 +401,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     if (auth_ret | time_check | !subscribed | (sub_time_valid && channel != EMERGENCY_CHANNEL)) {
         STATUS_LED_RED();
         print_error("Failed to decrypt frame - potential fault injection detected\n");
-        // TODO: Catch attacker
+        // Catch attacker
         HALT_AND_CATCH_FIRE();
         return -1;
     }
@@ -421,7 +423,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
             print_error("Failed to decrypt frame - invalid channel key\n");
             secure_wipe(channel_key, KEY_SIZE);
             secure_wipe(decrypted_frame, sizeof(decrypted_frame));
-            // TODO: Catch attacker
+            // Catch attacker
             HALT_AND_CATCH_FIRE();
             return -1;
         }
@@ -432,7 +434,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         print_error("Failed to decrypt frame - invalid timestamp - chaos\n");
         secure_wipe(channel_key, KEY_SIZE);
         secure_wipe(decrypted_frame, sizeof(decrypted_frame));
-        // TODO: Catch attacker
+        // Catch attacker
         HALT_AND_CATCH_FIRE();
         return -1;
     }
