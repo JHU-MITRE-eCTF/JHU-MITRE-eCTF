@@ -182,7 +182,7 @@ void load_secrets() {
         print_error("Secrets bin size is not 64 bytes, indicating a format error\n");
         return;
     }
-    memcpy(&decoder_secrets, secrets_bin_start, 64);
+    SECURE_MEMCPY(&decoder_secrets, secrets_bin_start, 64);
     print_debug("Loaded secrets from secrets file.\n");
 }
 
@@ -268,7 +268,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
         STATUS_LED_RED();
         print_error("Failed to update subscription - invalid signature\n");
         // Catch attacker
-        HALT_AND_CATCH_FIRE();
+        MAX_DELAY();
         return -1;
     }
     
@@ -278,7 +278,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
         STATUS_LED_RED();
         print_error("Failed to update subscription - invalid decoder ID.\n");
         // Catch attacker
-        HALT_AND_CATCH_FIRE();
+        MAX_DELAY();
         return -1;
     }
 
@@ -291,7 +291,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
         print_error("Failed to update subscription - invalid subscription key\n");
         secure_wipe(channel_key, KEY_SIZE);
         // Catch attacker
-        HALT_AND_CATCH_FIRE();
+        MAX_DELAY();
         return -1;
     }
 
@@ -303,7 +303,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
             decoder_status.subscribed_channels[i].start_timestamp = update->start_timestamp;
             decoder_status.subscribed_channels[i].end_timestamp = update->end_timestamp;
             // Zhong: Store the channel key
-            memcpy(decoder_status.subscribed_channels[i].channel_key, channel_key, KEY_SIZE);
+            SECURE_MEMCPY(decoder_status.subscribed_channels[i].channel_key, channel_key, KEY_SIZE);
             secure_wipe(channel_key, KEY_SIZE);
             break;
         }
@@ -348,7 +348,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     if (new_frame->data_length != pkt_len - 12 - 16 - SIGNATURE_SIZE - 4 - 8 - 1 || new_frame->data_length < 0 || new_frame->data_length > FRAME_SIZE) {
         STATUS_LED_RED();
         // Catch attacker
-        print_error("Failed to decrypt frame - invalid data length\n");
+        print_error("fault injection detected\n");
         HALT_AND_CATCH_FIRE();
         return -1;
     }
@@ -362,7 +362,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         STATUS_LED_RED();
         print_error("Failed to verify the frame - invalid signature\n");
         // Catch attacker
-        HALT_AND_CATCH_FIRE();
+        MAX_DELAY();
         return -1;
     }
     // Zhong: global timestamp check
@@ -400,7 +400,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     // Zhong: fault injection check
     if (auth_ret | time_check | !subscribed | (sub_time_valid && channel != EMERGENCY_CHANNEL)) {
         STATUS_LED_RED();
-        print_error("Failed to decrypt frame - potential fault injection detected\n");
+        print_error("Fault injection detected\n");
         // Catch attacker
         HALT_AND_CATCH_FIRE();
         return -1;
@@ -408,13 +408,13 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     // Zhong: Ready for decryption.Looking for the persistent channel key
     for (int i = 0; i < MAX_CHANNEL_COUNT; i++) {
         if (decoder_status.subscribed_channels[i].id == channel) {
-             memcpy(channel_key, decoder_status.subscribed_channels[i].channel_key, KEY_SIZE);
+             SECURE_MEMCPY(channel_key, decoder_status.subscribed_channels[i].channel_key, KEY_SIZE);
              break;
         }
     }
     // Zhong: Decrypt the encrypted frame
     if (channel == EMERGENCY_CHANNEL) { 
-        memcpy(decrypted_frame, new_frame->data.ciphertext, new_frame->data_length);
+        SECURE_MEMCPY(decrypted_frame, new_frame->data.ciphertext, new_frame->data_length);
     } else {
         ret = aes_gcm_decrypt((uint8_t *)new_frame->data.ciphertext, new_frame->data_length,
                         channel_key, (uint8_t *)new_frame->data.nonce, (uint8_t *)new_frame->data.tag, (uint8_t *)decrypted_frame);
@@ -423,7 +423,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
             print_error("Failed to decrypt frame - invalid channel key\n");
             secure_wipe(channel_key, KEY_SIZE);
             secure_wipe(decrypted_frame, sizeof(decrypted_frame));
-            // Catch attacker
+            // Catch attacker, which only triggered when fault injection exists
             HALT_AND_CATCH_FIRE();
             return -1;
         }
@@ -434,7 +434,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         print_error("Failed to decrypt frame - invalid timestamp - chaos\n");
         secure_wipe(channel_key, KEY_SIZE);
         secure_wipe(decrypted_frame, sizeof(decrypted_frame));
-        // Catch attacker
+        // Catch attacker, which only triggered when fault injection exists
         HALT_AND_CATCH_FIRE();
         return -1;
     }
@@ -458,7 +458,8 @@ void init() {
     flash_simple_init();
     //Liz: Disable unused peripherals
     disable_i2c();
-
+    // Zhong: initialize RNG
+    rng_init();
     // Zhong: Load Secrets
     load_secrets();
 
@@ -482,7 +483,7 @@ void init() {
         }
 
         // Write the starting channel subscriptions into flash.
-        memcpy(decoder_status.subscribed_channels, subscription, MAX_CHANNEL_COUNT*sizeof(channel_status_t));
+        SECURE_MEMCPY(decoder_status.subscribed_channels, subscription, MAX_CHANNEL_COUNT*sizeof(channel_status_t));
 
         flash_simple_erase_page(FLASH_STATUS_ADDR);
         flash_simple_write(FLASH_STATUS_ADDR, &decoder_status, sizeof(flash_entry_t));
