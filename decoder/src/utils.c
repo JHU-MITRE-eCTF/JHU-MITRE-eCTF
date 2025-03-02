@@ -96,7 +96,7 @@ void rng_get_trng_data(uint8_t *data, uint32_t len)
     }
 }
 
-/*
+/**
  * @brief xorshift64: serve as simple random number generator
  *
  * @param state
@@ -122,11 +122,11 @@ uint64_t xorshift64(uint8_t *state) {
   return x;
 }
 
-/*
+/**
  * @brief get_random_delay_us
  *
  * @param max_delay_us
- * @return uint32_t
+ * @return void
  */
 void get_random_delay_us(uint64_t max_delay_us) {
     uint8_t rng_state[RNG_BUFFER_LEN] = {0};

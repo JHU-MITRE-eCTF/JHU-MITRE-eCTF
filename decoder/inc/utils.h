@@ -22,6 +22,12 @@
  * possible to reach during normal operation.
  */
 #define HALT_AND_CATCH_FIRE() FI_PROTECT_0; do_spin_forever(); FI_PROTECT_2;
+
+/**
+ * @brief Delay for a random amount of time
+ * 
+ * Delay for a random amount of time between 0 and 5 seconds
+ */
 #define MAX_DELAY() get_random_delay_us(5000000);
 
 
@@ -69,10 +75,22 @@
 #define FI_PROTECT_4 FI_PROTECT_5 FI_PROTECT_5
 #define FI_PROTECT_5 __asm volatile( "b 1b; b 1b;" );
 
+/**
+ * @brief Spin forever
+ * 
+ */
 void do_spin_forever();
 
-// void secure_delay_and_recover(void);
-void secure_delay(uint64_t ms);
+/**
+ * @brief Initialize the true random number generator
+ * 
+ */
 void rng_init();
+
+/**
+ * @brief Delay for a random amount of time
+ * 
+ * Delay for a random amount of time between 0 and max_delay_us
+ */
 void get_random_delay_us(uint64_t max_delay_us);
 

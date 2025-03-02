@@ -78,14 +78,20 @@ extern const unsigned char secrets_bin_end[];
 // Binary packet format, see:
 // https://jhu-mitre-ectf.atlassian.net/wiki/spaces/BT/pages/3768335/Binary+Data+Format+Specifications
 
-// Zhong: Define the AES_GCM packet type
-
+/**
+ * @brief The AES_GCM packet type used for frame data.
+ * @author Gavin Zhong
+ */
 typedef struct {
     uint8_t nonce[12];
     uint8_t ciphertext[FRAME_SIZE]; //for AES_GCM the length of ciphertext is equal to cleartext
     uint8_t tag[16];
 } aes_gcm_packet_frame_t;
 
+/**
+ * @brief The frame packet type used for frame data.
+ * @author Gavin Zhong
+ */
 typedef struct {
     // header
     channel_id_t channel;
@@ -96,12 +102,20 @@ typedef struct {
     uint8_t signature[SIGNATURE_SIZE];
 } frame_packet_t;
 
+/**
+ * @brief The AES_GCM packet type used for key data.
+ * @author Gavin Zhong
+ */
 typedef struct {
     uint8_t nonce[12];
     uint8_t ciphertext[KEY_SIZE]; //for AES_GCM the length of ciphertext is equal to cleartext
     uint8_t tag[16];
 } aes_gcm_packet_key_t;
 
+/**
+ * @brief The subscription update packet type used for key data.
+ * @author Gavin Zhong
+ */
 typedef struct {
     decoder_id_t decoder_id;
     timestamp_t start_timestamp;
@@ -141,7 +155,11 @@ typedef struct {
     channel_status_t subscribed_channels[MAX_CHANNEL_COUNT];
 } flash_entry_t;
 
-//Liz - addedd struct for secrets
+
+/**
+ * @brief The secrets struct used to store the subscription key and signature public key.
+ * @author Liz
+ */
 typedef struct {
     uint8_t subscription_key[32];  // AES-256 key for subscription updates
     uint8_t signature_public_key[32];  // ECC public key for verifying signatures
@@ -171,15 +189,17 @@ void disable_i2c() {
     MXC_SYS_ClockDisable(MXC_SYS_PERIPH_CLOCK_I2C0);  // Disable I2C0
     MXC_SYS_ClockDisable(MXC_SYS_PERIPH_CLOCK_I2C1);  // Disable I2C1
 }
-/*
- * Function:  load_secrets (Zhong)
- * --------------------
- * Loads subscription key, public key from linked object file into the global variable decoder_secrets
- * 
+
+/**
+ * @brief Loads subscription key, public key from linked object file into the global variable decoder_secrets
+ * @author Gavin Zhong
  */
 void load_secrets() {
     if (secrets_bin_end - secrets_bin_start != 64) {
         print_error("Secrets bin size is not 64 bytes, indicating a format error\n");
+        // The caller has violated the function's contract,
+        // this can only be caused by a hardware fault.
+        HALT_AND_CATCH_FIRE();
         return;
     }
     SECURE_MEMCPY(&decoder_secrets, secrets_bin_start, 64);
@@ -231,6 +251,8 @@ int list_channels() {
     len = sizeof(resp.n_channels) + (sizeof(channel_info_t) * resp.n_channels);
 
     // Success message
+    SEC_ASSERT(resp.n_channels <= MAX_CHANNEL_COUNT);
+    SEC_ASSERT(len == (sizeof(resp.n_channels) + (sizeof(channel_info_t) * resp.n_channels)));
     write_packet(LIST_MSG, &resp, len);
     return 0;
 }
@@ -248,6 +270,14 @@ int list_channels() {
  *  @return 0 upon success.  -1 if error.
 */
 int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update) {
+    if (update == NULL) {
+        STATUS_LED_RED();
+        print_error("error");
+        // The caller has violated the function's contract,
+        // this can only be caused by a hardware fault.
+        HALT_AND_CATCH_FIRE();
+        return -1;
+    }
 
     if (update->channel == EMERGENCY_CHANNEL) {
         STATUS_LED_RED();
@@ -319,6 +349,9 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
 
     flash_simple_erase_page(FLASH_STATUS_ADDR);
     flash_simple_write(FLASH_STATUS_ADDR, &decoder_status, sizeof(flash_entry_t));
+
+    SEC_ASSERT(auth_ret == 0);
+    SEC_ASSERT(DECODER_ID == update->decoder_id);
     // Success message with an empty body
     write_packet(SUBSCRIBE_MSG, NULL, 0);
 
@@ -331,8 +364,6 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
  *  @param pkt_len A pointer to the incoming packet.
  *  @param new_frame A pointer to the incoming packet.
  *
- *  @note: Zhong: in the pre-checking we give first priority to less time costing tasks.
- *         such as subscription check, timestamp check;
  *  @return 0 if successful.  -1 if data is from unsubscribed channel.
 */
 int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
@@ -347,8 +378,9 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     // Zhong: Input Validation
     if (new_frame->data_length != pkt_len - 12 - 16 - SIGNATURE_SIZE - 4 - 8 - 1 || new_frame->data_length < 0 || new_frame->data_length > FRAME_SIZE) {
         STATUS_LED_RED();
-        // Catch attacker
         print_error("fault injection detected\n");
+        // The caller has violated the function's contract,
+        // this can only be caused by a hardware fault.
         HALT_AND_CATCH_FIRE();
         return -1;
     }
@@ -401,7 +433,8 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     if (auth_ret | time_check | !subscribed | (sub_time_valid && channel != EMERGENCY_CHANNEL)) {
         STATUS_LED_RED();
         print_error("Fault injection detected\n");
-        // Catch attacker
+        // The caller has violated the function's contract,
+        // this can only be caused by a hardware fault.
         HALT_AND_CATCH_FIRE();
         return -1;
     }
@@ -423,7 +456,8 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
             print_error("Failed to decrypt frame - invalid channel key\n");
             secure_wipe(channel_key, KEY_SIZE);
             secure_wipe(decrypted_frame, sizeof(decrypted_frame));
-            // Catch attacker, which only triggered when fault injection exists
+            // The caller has violated the function's contract,
+            // this can only be caused by a hardware fault.
             HALT_AND_CATCH_FIRE();
             return -1;
         }
@@ -434,7 +468,8 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         print_error("Failed to decrypt frame - invalid timestamp - chaos\n");
         secure_wipe(channel_key, KEY_SIZE);
         secure_wipe(decrypted_frame, sizeof(decrypted_frame));
-        // Catch attacker, which only triggered when fault injection exists
+        // The caller has violated the function's contract,
+        // this can only be caused by a hardware fault.
         HALT_AND_CATCH_FIRE();
         return -1;
     }
@@ -456,7 +491,7 @@ void init() {
     int ret;
     // Initialize the flash peripheral to enable access to persistent memory
     flash_simple_init();
-    //Liz: Disable unused peripherals
+    // Liz: Disable unused peripherals
     disable_i2c();
     // Zhong: initialize RNG
     rng_init();
@@ -496,11 +531,6 @@ void init() {
         // if uart fails to initialize, do not continue to execute
         while (1);
     }
-}
-
-int authenticate(const byte* sig, const byte* msg, const byte* pub_key) {
-    return ed25519_authenticate(sig, SIG_SIZE, msg, MESSAGE_SIZE, 
-                                pub_key, PUB_KEY_SIZE);
 }
 /**********************************************************
  *********************** MAIN LOOP ************************
