@@ -204,7 +204,6 @@ void load_secrets() {
         return;
     }
     SECURE_MEMCPY(&decoder_secrets, secrets_bin_start, 64);
-    print_debug("Loaded secrets from secrets file.\n");
 }
 
 /** @brief Checks whether the decoder is subscribed to a given channel
@@ -325,8 +324,9 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
         // print_error("Failed to update subscription - invalid subscription key\n");
         print_error("error");
         secure_wipe(channel_key, KEY_SIZE);
-        // Catch attacker
-        MAX_DELAY();
+        // The caller has violated the function's contract,
+        // the decryption failure after authentication can only be caused by a hardware fault.
+        HALT_AND_CATCH_FIRE();
         return -1;
     }
 
