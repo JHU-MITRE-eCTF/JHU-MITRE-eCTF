@@ -251,8 +251,8 @@ int list_channels() {
     len = sizeof(resp.n_channels) + (sizeof(channel_info_t) * resp.n_channels);
 
     // Success message
-    SEC_ASSERT(resp.n_channels <= MAX_CHANNEL_COUNT);
-    SEC_ASSERT(len == (sizeof(resp.n_channels) + (sizeof(channel_info_t) * resp.n_channels)));
+    SEC_ASSERT((volatile uint32_t) resp.n_channels <= MAX_CHANNEL_COUNT);
+    SEC_ASSERT((volatile uint16_t) len == (sizeof(resp.n_channels) + (sizeof(channel_info_t) * (volatile uint32_t) resp.n_channels)));
     write_packet(LIST_MSG, &resp, len);
     return 0;
 }
@@ -316,7 +316,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     u_int8_t channel_key[KEY_SIZE] = {0};
     decrypt_ret = aes_gcm_decrypt((uint8_t *)update->encrypted_channel_key.ciphertext, KEY_SIZE,
                      decoder_secrets.subscription_key, (uint8_t *)update->encrypted_channel_key.nonce, (uint8_t *)update->encrypted_channel_key.tag, (uint8_t *)channel_key);
-    if (auth_ret != 0 || decrypt_ret != 0 || decode_ret != 0) {
+    if ((volatile int) auth_ret != 0 || (volatile int) decrypt_ret != 0 || (volatile int) decode_ret != 0) {
         STATUS_LED_RED();
         print_error("Failed to update subscription - invalid subscription key\n");
         secure_wipe(channel_key, KEY_SIZE);
@@ -350,8 +350,8 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     flash_simple_erase_page(FLASH_STATUS_ADDR);
     flash_simple_write(FLASH_STATUS_ADDR, &decoder_status, sizeof(flash_entry_t));
 
-    SEC_ASSERT(auth_ret == 0);
-    SEC_ASSERT(DECODER_ID == update->decoder_id);
+    SEC_ASSERT((volatile int) auth_ret == 0);
+    SEC_ASSERT((volatile uint32_t) DECODER_ID == (volatile uint32_t) update->decoder_id);
     // Success message with an empty body
     write_packet(SUBSCRIBE_MSG, NULL, 0);
 
@@ -376,7 +376,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     int ret = -1;
 
     // Zhong: Input Validation
-    if (new_frame->data_length != pkt_len - 12 - 16 - SIGNATURE_SIZE - 4 - 8 - 1 || new_frame->data_length < 0 || new_frame->data_length > FRAME_SIZE) {
+    if ((volatile uint8_t) new_frame->data_length != (volatile pkt_len_t) (pkt_len - 12 - 16 - SIGNATURE_SIZE - 4 - 8 - 1) || (volatile uint8_t) new_frame->data_length < 0 || (volatile uint8_t) new_frame->data_length > FRAME_SIZE) {
         STATUS_LED_RED();
         print_error("fault injection detected\n");
         // The caller has violated the function's contract,
@@ -410,7 +410,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         STATUS_LED_RED();
         sprintf(
             output_buf,
-            "Receiving unsubscribed channel data.  %u\n", channel);
+            "Receiving unsubscribed channel data.  %lu\n", channel);
         print_error(output_buf);
         return -1;
     }
@@ -430,7 +430,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         }
     }
     // Zhong: fault injection check
-    if (auth_ret | time_check | !subscribed | (sub_time_valid && channel != EMERGENCY_CHANNEL)) {
+    if ((volatile int) auth_ret | (volatile int) time_check | !subscribed | ((volatile u_int8_t) sub_time_valid && (volatile uint32_t) channel != EMERGENCY_CHANNEL)) {
         STATUS_LED_RED();
         print_error("Fault injection detected\n");
         // The caller has violated the function's contract,
@@ -463,7 +463,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         }
     }
     // Zhong: global timestamp check before rewrite
-    if (new_frame->timestamp <= last_valid_timestamp) {
+    if ((volatile timestamp_t) new_frame->timestamp <= (volatile timestamp_t) last_valid_timestamp) {
         STATUS_LED_RED();
         print_error("Failed to decrypt frame - invalid timestamp - chaos\n");
         secure_wipe(channel_key, KEY_SIZE);

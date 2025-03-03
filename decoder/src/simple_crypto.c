@@ -17,92 +17,6 @@
 
 
 /******************************** FUNCTION PROTOTYPES ********************************/
-/** @brief Encrypts plaintext using a symmetric cipher
- *
- * @param plaintext A pointer to a buffer of length len containing the
- *          plaintext to encrypt
- * @param len The length of the plaintext to encrypt. Must be a multiple of
- *          BLOCK_SIZE (16 bytes)
- * @param key A pointer to a buffer of length KEY_SIZE (16 bytes) containing
- *          the key to use for encryption
- * @param ciphertext A pointer to a buffer of length len where the resulting
- *          ciphertext will be written to
- *
- * @return 0 on success, -1 on bad length, other non-zero for other error
- */
-int encrypt_sym(uint8_t *plaintext, size_t len, uint8_t *key, uint8_t *ciphertext) {
-    Aes ctx; // Context for encryption
-    int result; // Library result
-
-    // Ensure valid length
-    if (len <= 0 || len % BLOCK_SIZE)
-        return -1;
-
-    // Set the key for encryption
-    result = wc_AesSetKey(&ctx, key, 16, NULL, AES_ENCRYPTION);
-    if (result != 0)
-        return result; // Report error
-
-
-    // Encrypt each block
-    for (int i = 0; i < len - 1; i += BLOCK_SIZE) {
-        result = wc_AesEncryptDirect(&ctx, ciphertext + i, plaintext + i);
-        if (result != 0)
-            return result; // Report error
-    }
-    return 0;
-}
-
-/** @brief Decrypts ciphertext using a symmetric cipher
- *
- * @param ciphertext A pointer to a buffer of length len containing the
- *          ciphertext to decrypt
- * @param len The length of the ciphertext to decrypt. Must be a multiple of
- *          BLOCK_SIZE (16 bytes)
- * @param key A pointer to a buffer of length KEY_SIZE (16 bytes) containing
- *          the key to use for decryption
- * @param plaintext A pointer to a buffer of length len where the resulting
- *          plaintext will be written to
- *
- * @return 0 on success, -1 on bad length, other non-zero for other error
- */
-int decrypt_sym(uint8_t *ciphertext, size_t len, uint8_t *key, uint8_t *plaintext) {
-    Aes ctx; // Context for decryption
-    int result; // Library result
-
-    // Ensure valid length
-    if (len <= 0 || len % BLOCK_SIZE)
-        return -1;
-
-    // Set the key for decryption
-    result = wc_AesSetKey(&ctx, key, 16, NULL, AES_DECRYPTION);
-    if (result != 0)
-        return result; // Report error
-
-    // Decrypt each block
-    for (int i = 0; i < len - 1; i += BLOCK_SIZE) {
-        result = wc_AesDecryptDirect(&ctx, plaintext + i, ciphertext + i);
-        if (result != 0)
-            return result; // Report error
-    }
-    return 0;
-}
-
-/** @brief Hashes arbitrary-length data
- *
- * @param data A pointer to a buffer of length len containing the data
- *          to be hashed
- * @param len The length of the plaintext to hash
- * @param hash_out A pointer to a buffer of length HASH_SIZE (16 bytes) where the resulting
- *          hash output will be written to
- *
- * @return 0 on success, non-zero for other error
- */
-int hash(void *data, size_t len, uint8_t *hash_out) {
-    // Pass values to hash
-    return wc_Md5Hash((uint8_t *)data, len, hash_out);
-}
-
 // Yi: reference https://github.com/wolfSSL/wolfssl/blob/master/doc/dox_comments/header_files/ed25519.h#L345
 /** @brief Verifies a digital signature using Ed25519
  *
@@ -119,38 +33,48 @@ int hash(void *data, size_t len, uint8_t *hash_out) {
  */
 int ed25519_authenticate(const byte* sig, word32 sigSz, const byte* msg, word32 msgSz,
                  const byte* pubKey, word32 pubKeySz) {
-    int ret;
+    volatile int ret_init = -1;
+    volatile int ret_import = -1;
+    volatile int ret_verify = -1;
     int result = 0;
-    ed25519_key myKey;
+    ed25519_key myKey = {0};
 
-    ret = wc_ed25519_init(&myKey);
-    if (ret == 0) {
-        ret = wc_ed25519_import_public(pubKey, pubKeySz, &myKey);
-        if (ret == 0) {
-            ret = wc_ed25519_verify_msg(sig, sigSz, msg, msgSz, &result, &myKey);
-        }
-        wc_ed25519_free(&myKey);
+    ret_init = wc_ed25519_init(&myKey);
+    if (ret_init != 0 || ret_init != 0 || ret_init != 0) {
+        return -1;
     }
-    return ret;
+    ret_import = wc_ed25519_import_public(pubKey, pubKeySz, &myKey);
+    if (ret_import != 0 || ret_import != 0 || ret_import != 0) {
+        return -1;
+    }
+    ret_verify = wc_ed25519_verify_msg(sig, sigSz, msg, msgSz, &result, &myKey);
+    if ((volatile int) result != 1 || ret_verify != 0 || ret_verify != 0 || (volatile int) result != 1 || (volatile int) result != 1) {
+        return -1;
+    }
+    wc_ed25519_free(&myKey);
+    return ret_verify;
 }
 
 int aes_gcm_decrypt(uint8_t *ciphertext, size_t ciphertext_len,
                      uint8_t *key, uint8_t *iv, uint8_t *tag, uint8_t *plaintext) {
-    Aes aes; //can use the same struct as was passed to wc_AesGcmEncrypt
-    // initialize aes structure by calling wc_AesInit and wc_AesGcmSetKey
-    // if not already done
-    int ret;
-
+    Aes aes = {0}; // AES-GCM context
+    volatile int ret = wc_AesInit(&aes, NULL, INVALID_DEVID);
     // Initialize AES-GCM context
-    if (ret = wc_AesInit(&aes, NULL, INVALID_DEVID) != 0) {
+    if (ret != 0 || ret != 0 || ret != 0) {
         return -1;
     }
+    volatile int ret_set_key = wc_AesGcmSetKey(&aes, key, KEY_SIZE);
     // Set AES-GCM key for decryption
-    if (ret = wc_AesGcmSetKey(&aes, key, KEY_SIZE) != 0) {
+    if (ret_set_key != 0 || ret_set_key != 0 || ret_set_key != 0) {
         return -1;
     }
-    if (ret = wc_AesGcmDecrypt(&aes, plaintext, ciphertext, ciphertext_len,
-                              iv, IV_SIZE, tag, AUTH_TAG_SIZE, NULL, 0) != 0) {
+    volatile int ret_decrypt = wc_AesGcmDecrypt(&aes, plaintext, ciphertext, ciphertext_len,
+                              iv, IV_SIZE, tag, AUTH_TAG_SIZE, NULL, 0);
+    if (ret_decrypt != 0 || ret_decrypt != 0 || ret_decrypt != 0) {
+        return -1;
+    }
+
+    if (ret | ret_set_key | ret_decrypt) { 
         return -1;
     }
     return 0;
