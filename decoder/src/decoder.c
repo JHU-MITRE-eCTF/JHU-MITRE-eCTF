@@ -286,16 +286,16 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
         return -1;
     }
     int i;
-    int auth_ret = 1;
-    int decrypt_ret = 1;
-    int decode_ret = 1;
+    volatile int auth_ret = 1;
+    volatile int decrypt_ret = 1;
+    volatile int decode_ret = 1;
     
     // Zhong: verify the signature
     unsigned int message = sizeof(subscription_update_packet_t) - SIGNATURE_SIZE;
     auth_ret = ed25519_authenticate(update->signature, SIGNATURE_SIZE, (u_int8_t *)update, message,
                  decoder_secrets.signature_public_key, KEY_SIZE);
     // Zhong: if invalid signature, return error
-    if (auth_ret != 0) {
+    if (auth_ret != 0 || auth_ret != 0 || auth_ret != 0) {
         STATUS_LED_RED();
         // print_error("Failed to update subscription - invalid signature\n");
         print_error("error");
@@ -306,7 +306,7 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     
     // Zhong: verify the decoder ID
     decode_ret = (DECODER_ID != update->decoder_id);
-    if (decode_ret != 0) {
+    if (decode_ret != 0 || decode_ret != 0 || decode_ret != 0) {
         STATUS_LED_RED();
         // print_error("Failed to update subscription - invalid decoder ID.\n");
         print_error("error");
@@ -379,7 +379,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     unsigned int message_size = 0;
     u_int8_t sub_time_valid = 1;
     u_int8_t decrypted_frame[FRAME_SIZE] = {0};
-    int ret = -1;
+    volatile int ret = -1;
 
     // Zhong: Input Validation
     if ((volatile uint8_t) new_frame->data_length != (volatile pkt_len_t) (pkt_len - 12 - 16 - SIGNATURE_SIZE - 4 - 8 - 1) || (volatile uint8_t) new_frame->data_length < 0 || (volatile uint8_t) new_frame->data_length > FRAME_SIZE) {
@@ -394,10 +394,10 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
 
     // Zhong: verify the signature; repeated computation against fault injection
     message_size = pkt_len - SIGNATURE_SIZE;
-    int auth_ret = ed25519_authenticate(new_frame->signature, SIGNATURE_SIZE, (u_int8_t *)new_frame, message_size,
+    volatile int auth_ret = ed25519_authenticate(new_frame->signature, SIGNATURE_SIZE, (u_int8_t *)new_frame, message_size,
                  decoder_secrets.signature_public_key, KEY_SIZE);
     // Zhong: if invalid signature, return error
-    if (auth_ret != 0) {
+    if (auth_ret != 0 || auth_ret != 0 || auth_ret != 0) {
         STATUS_LED_RED();
         // print_error("Failed to verify the frame - invalid signature\n");
         print_error("error");
@@ -406,16 +406,16 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         return -1;
     }
     // Zhong: global timestamp check
-    int time_check = new_frame->timestamp <= last_valid_timestamp;
-    if (time_check != 0) {
+    volatile int time_check = new_frame->timestamp <= last_valid_timestamp;
+    if (time_check != 0 || time_check != 0 || time_check != 0) {
         STATUS_LED_RED();
         // print_error("Failed to decrypt frame - invalid timestamp\n");
         print_error("error");
         return -1;
     }
     // Check that we are subscribed to the channel
-    int subscribed = is_subscribed(channel);
-    if (subscribed != 1) {
+    volatile int subscribed = is_subscribed(channel);
+    if (subscribed != 1 || subscribed != 1 || subscribed != 1) {
         STATUS_LED_RED();
         // sprintf(
         //     output_buf,
@@ -443,7 +443,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         }
     }
     // Zhong: fault injection check
-    if ((volatile int) auth_ret | (volatile int) time_check | !subscribed | ((volatile u_int8_t) sub_time_valid && (volatile uint32_t) channel != EMERGENCY_CHANNEL)) {
+    if ((volatile int) auth_ret | (volatile int) time_check | (volatile int) subscribed != 1 | ((volatile u_int8_t) sub_time_valid && (volatile uint32_t) channel != EMERGENCY_CHANNEL)) {
         STATUS_LED_RED();
         // print_error("Fault injection detected\n");
         print_error("error");
@@ -465,7 +465,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     } else {
         ret = aes_gcm_decrypt((uint8_t *)new_frame->data.ciphertext, new_frame->data_length,
                         channel_key, (uint8_t *)new_frame->data.nonce, (uint8_t *)new_frame->data.tag, (uint8_t *)decrypted_frame);
-        if (ret != 0) {
+        if (ret != 0 || ret != 0 || ret != 0) {
             STATUS_LED_RED();
             // print_error("Failed to decrypt frame - invalid channel key\n");
             print_error("error");
