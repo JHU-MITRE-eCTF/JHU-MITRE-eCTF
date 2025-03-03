@@ -1,14 +1,13 @@
 /**
  * @file    decoder.c
- * @author  Samuel Meyers
- * @brief   eCTF Decoder Example Design Implementation
+ * @author  JHU eCTF Team, MITRE
+ * @brief   JHU eCTF Decoder Design Implementation
  * @date    2025
  *
- * This source file is part of an example system for MITRE's 2025 Embedded System CTF (eCTF).
+ * This source file is JHU's decoder design for MITRE's 2025 Embedded System CTF (eCTF).
  * This code is being provided only for educational purposes for the 2025 MITRE eCTF competition,
  * and may not meet MITRE standards for quality. Use this code at your own risk!
  *
- * @copyright Copyright (c) 2025 The MITRE Corporation
  */
 
 /*********************** INCLUDES *************************/
@@ -27,6 +26,9 @@
 #include "mxc_sys.h"
 #include "i2c.h"
 #include "utils.h"
+#include "nvic_table.h"
+#include "icc_regs.h"
+#include "gcr_regs.h"
 
 /**********************************************************
  ******************* PRIMITIVE TYPES **********************
@@ -158,7 +160,7 @@ typedef struct {
 
 /**
  * @brief The secrets struct used to store the subscription key and signature public key.
- * @author Liz
+ * @author Liz Grzyb
  */
 typedef struct {
     uint8_t subscription_key[32];  // AES-256 key for subscription updates
@@ -171,7 +173,7 @@ typedef struct {
 
 // This is used to track decoder subscriptions
 flash_entry_t decoder_status;
-//Liz - this is to store the secrets in RAM
+// Liz - this is to store the secrets in RAM
 secrets_t decoder_secrets;
 // Zhong - global timestamp
 static timestamp_t last_valid_timestamp = 0;
@@ -180,14 +182,32 @@ static timestamp_t last_valid_timestamp = 0;
  ******************* UTILITY FUNCTIONS ********************
  **********************************************************/
 
- /*
- * Function: disable_i2c (Liz)
- * --------------------
- * Disables the I2C peripheral, unused in this design
- */
+ /** 
+ * @brief disables unused i2c peripheral
+ * @author Liz Grzyb
+ **/
 void disable_i2c() {
-    MXC_SYS_ClockDisable(MXC_SYS_PERIPH_CLOCK_I2C0);  // Disable I2C0
-    MXC_SYS_ClockDisable(MXC_SYS_PERIPH_CLOCK_I2C1);  // Disable I2C1
+    MXC_GCR->pclkdis0 |= MXC_F_GCR_PCLKDIS0_I2C0;  // Disable I2C0
+    MXC_GCR->pclkdis0 |= MXC_F_GCR_PCLKDIS0_I2C1;  // Disable I2C1
+}
+/** 
+ * @brief disables unused irq peripheral
+ * @author Liz Grzyb
+ **/
+void disable_irq(void) {
+    __disable_irq();  // Disables all interrupts
+    // Disable all individual interrupts that can be disabled
+    for (IRQn_Type irq = 0; irq < MXC_IRQ_EXT_COUNT; irq++) {
+        NVIC_DisableIRQ(irq);  // Disable specific IRQ
+    }
+}
+/** 
+ * @brief disables cache
+ * @author Liz Grzyb
+ **/
+void disable_cache(void) {
+    MXC_ICC0->ctrl &= ~MXC_F_ICC_CTRL_EN;  // Disable Instruction Cache 0
+    MXC_ICC1->ctrl &= ~MXC_F_ICC_CTRL_EN;  // Disable Instruction Cache 1
 }
 
 /**
@@ -509,6 +529,8 @@ void init() {
     flash_simple_init();
     // Liz: Disable unused peripherals
     disable_i2c();
+    disable_irq();
+    disable_cache();
     // Zhong: initialize RNG
     rng_init();
     // Zhong: Load Secrets
