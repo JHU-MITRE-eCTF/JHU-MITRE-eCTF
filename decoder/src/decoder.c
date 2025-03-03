@@ -196,7 +196,8 @@ void disable_i2c() {
  */
 void load_secrets() {
     if (secrets_bin_end - secrets_bin_start != 64) {
-        print_error("Secrets bin size is not 64 bytes, indicating a format error\n");
+        // print_error("Secrets bin size is not 64 bytes, indicating a format error\n");
+        print_error("error");
         // The caller has violated the function's contract,
         // this can only be caused by a hardware fault.
         HALT_AND_CATCH_FIRE();
@@ -281,7 +282,8 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
 
     if (update->channel == EMERGENCY_CHANNEL) {
         STATUS_LED_RED();
-        print_error("Failed to update subscription - cannot subscribe to emergency channel\n");
+        // print_error("Failed to update subscription - cannot subscribe to emergency channel\n");
+        print_error("error");
         return -1;
     }
     int i;
@@ -296,7 +298,8 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     // Zhong: if invalid signature, return error
     if (auth_ret != 0) {
         STATUS_LED_RED();
-        print_error("Failed to update subscription - invalid signature\n");
+        // print_error("Failed to update subscription - invalid signature\n");
+        print_error("error");
         // Catch attacker
         MAX_DELAY();
         return -1;
@@ -306,7 +309,8 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     decode_ret = (DECODER_ID != update->decoder_id);
     if (decode_ret != 0) {
         STATUS_LED_RED();
-        print_error("Failed to update subscription - invalid decoder ID.\n");
+        // print_error("Failed to update subscription - invalid decoder ID.\n");
+        print_error("error");
         // Catch attacker
         MAX_DELAY();
         return -1;
@@ -318,7 +322,8 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
                      decoder_secrets.subscription_key, (uint8_t *)update->encrypted_channel_key.nonce, (uint8_t *)update->encrypted_channel_key.tag, (uint8_t *)channel_key);
     if ((volatile int) auth_ret != 0 || (volatile int) decrypt_ret != 0 || (volatile int) decode_ret != 0) {
         STATUS_LED_RED();
-        print_error("Failed to update subscription - invalid subscription key\n");
+        // print_error("Failed to update subscription - invalid subscription key\n");
+        print_error("error");
         secure_wipe(channel_key, KEY_SIZE);
         // Catch attacker
         MAX_DELAY();
@@ -342,7 +347,8 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     // If we do not have any room for more subscriptions
     if (i == MAX_CHANNEL_COUNT) {
         STATUS_LED_RED();
-        print_error("Failed to update subscription - max subscriptions installed\n");
+        // print_error("Failed to update subscription - max subscriptions installed\n");
+        print_error("error");
         secure_wipe(channel_key, KEY_SIZE);
         return -1;
     }
@@ -378,7 +384,8 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     // Zhong: Input Validation
     if ((volatile uint8_t) new_frame->data_length != (volatile pkt_len_t) (pkt_len - 12 - 16 - SIGNATURE_SIZE - 4 - 8 - 1) || (volatile uint8_t) new_frame->data_length < 0 || (volatile uint8_t) new_frame->data_length > FRAME_SIZE) {
         STATUS_LED_RED();
-        print_error("fault injection detected\n");
+        // print_error("fault injection detected\n");
+        print_error("error");
         // The caller has violated the function's contract,
         // this can only be caused by a hardware fault.
         HALT_AND_CATCH_FIRE();
@@ -392,7 +399,8 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     // Zhong: if invalid signature, return error
     if (auth_ret != 0) {
         STATUS_LED_RED();
-        print_error("Failed to verify the frame - invalid signature\n");
+        // print_error("Failed to verify the frame - invalid signature\n");
+        print_error("error");
         // Catch attacker
         MAX_DELAY();
         return -1;
@@ -401,16 +409,20 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     int time_check = new_frame->timestamp <= last_valid_timestamp;
     if (time_check != 0) {
         STATUS_LED_RED();
-        print_error("Failed to decrypt frame - invalid timestamp\n");
+        // print_error("Failed to decrypt frame - invalid timestamp\n");
+        print_error("error");
         return -1;
     }
     // Check that we are subscribed to the channel
     int subscribed = is_subscribed(channel);
     if (subscribed != 1) {
         STATUS_LED_RED();
+        // sprintf(
+        //     output_buf,
+        //     "Receiving unsubscribed channel data.  %lu\n", channel);
         sprintf(
             output_buf,
-            "Receiving unsubscribed channel data.  %lu\n", channel);
+            "error");
         print_error(output_buf);
         return -1;
     }
@@ -423,7 +435,8 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
              new_frame->timestamp > decoder_status.subscribed_channels[i].end_timestamp;
             if (sub_time_valid && channel != EMERGENCY_CHANNEL) {
                 STATUS_LED_RED();
-                print_error("Failed to decrypt frame - inactive subscription \n");
+                // print_error("Failed to decrypt frame - inactive subscription \n");
+                print_error("error");
                 return -1;
             }
             break;
@@ -432,7 +445,8 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     // Zhong: fault injection check
     if ((volatile int) auth_ret | (volatile int) time_check | !subscribed | ((volatile u_int8_t) sub_time_valid && (volatile uint32_t) channel != EMERGENCY_CHANNEL)) {
         STATUS_LED_RED();
-        print_error("Fault injection detected\n");
+        // print_error("Fault injection detected\n");
+        print_error("error");
         // The caller has violated the function's contract,
         // this can only be caused by a hardware fault.
         HALT_AND_CATCH_FIRE();
@@ -453,7 +467,8 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
                         channel_key, (uint8_t *)new_frame->data.nonce, (uint8_t *)new_frame->data.tag, (uint8_t *)decrypted_frame);
         if (ret != 0) {
             STATUS_LED_RED();
-            print_error("Failed to decrypt frame - invalid channel key\n");
+            // print_error("Failed to decrypt frame - invalid channel key\n");
+            print_error("error");
             secure_wipe(channel_key, KEY_SIZE);
             secure_wipe(decrypted_frame, sizeof(decrypted_frame));
             // The caller has violated the function's contract,
@@ -465,7 +480,8 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     // Zhong: global timestamp check before rewrite
     if ((volatile timestamp_t) new_frame->timestamp <= (volatile timestamp_t) last_valid_timestamp) {
         STATUS_LED_RED();
-        print_error("Failed to decrypt frame - invalid timestamp - chaos\n");
+        // print_error("Failed to decrypt frame - invalid timestamp - chaos\n");
+        print_error("error");
         secure_wipe(channel_key, KEY_SIZE);
         secure_wipe(decrypted_frame, sizeof(decrypted_frame));
         // The caller has violated the function's contract,
