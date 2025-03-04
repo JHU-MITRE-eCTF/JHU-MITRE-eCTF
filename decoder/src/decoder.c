@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdbool.h>
 #include "simple_flash.h"
 #include "host_messaging.h"
 #include "status_led.h"
@@ -71,9 +72,9 @@ extern const unsigned char secrets_bin_end[];
  * @author Gavin Zhong
  */
 typedef struct {
-    uint8_t nonce[12];
+    uint8_t nonce[IV_SIZE];
     uint8_t ciphertext[FRAME_SIZE]; //for AES_GCM the length of ciphertext is equal to cleartext
-    uint8_t tag[16];
+    uint8_t tag[TAG_SIZE];
 } aes_gcm_packet_frame_t;
 
 /**
@@ -95,9 +96,9 @@ typedef struct {
  * @author Gavin Zhong
  */
 typedef struct {
-    uint8_t nonce[12];
+    uint8_t nonce[IV_SIZE];
     uint8_t ciphertext[KEY_SIZE]; //for AES_GCM the length of ciphertext is equal to cleartext
-    uint8_t tag[16];
+    uint8_t tag[TAG_SIZE];
 } aes_gcm_packet_key_t;
 
 /**
@@ -149,8 +150,8 @@ typedef struct {
  * @author Liz Grzyb
  */
 typedef struct {
-    uint8_t subscription_key[32];  // AES-256 key for subscription updates
-    uint8_t signature_public_key[32];  // ECC public key for verifying signatures
+    uint8_t subscription_key[KEY_SIZE];  // AES-256 key for subscription updates
+    uint8_t signature_public_key[KEY_SIZE];  // ECC public key for verifying signatures
 } secrets_t;
 
 /**********************************************************
@@ -189,18 +190,18 @@ void load_secrets() {
  *  @param channel The channel number to be checked.
  *  @return 1 if the the decoder is subscribed to the channel.  0 if not.
 */
-int is_subscribed(channel_id_t channel) {
+bool is_subscribed(channel_id_t channel) {
     // Check if this is an emergency broadcast message
     if (channel == EMERGENCY_CHANNEL) {
-        return 1;
+        return true;
     }
     // Check if the decoder has has a subscription
     for (int i = 0; i < MAX_CHANNEL_COUNT; i++) {
         if (decoder_status.subscribed_channels[i].id == channel && decoder_status.subscribed_channels[i].active) {
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }
 
 /**********************************************************
@@ -259,7 +260,6 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
 
     if (update->channel == EMERGENCY_CHANNEL) {
         STATUS_LED_RED();
-        // print_error("Failed to update subscription - cannot subscribe to emergency channel\n");
         print_error("error");
         return -1;
     }
@@ -275,7 +275,6 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     // Zhong: if invalid signature, return error
     if (auth_ret != 0 || auth_ret != 0 || auth_ret != 0) {
         STATUS_LED_RED();
-        // print_error("Failed to update subscription - invalid signature\n");
         print_error("error");
         // Catch attacker
         MAX_DELAY();
@@ -286,7 +285,6 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     decode_ret = (DECODER_ID != update->decoder_id);
     if (decode_ret != 0 || decode_ret != 0 || decode_ret != 0) {
         STATUS_LED_RED();
-        // print_error("Failed to update subscription - invalid decoder ID.\n");
         print_error("error");
         // Catch attacker
         MAX_DELAY();
@@ -330,7 +328,6 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     // If we do not have any room for more subscriptions
     if (i == MAX_CHANNEL_COUNT) {
         STATUS_LED_RED();
-        // print_error("Failed to update subscription - max subscriptions installed\n");
         print_error("error");
         secure_wipe(channel_key, KEY_SIZE);
         return -1;
@@ -365,7 +362,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     volatile int ret = -1;
 
     // Zhong: Input Validation
-    if ((volatile uint8_t) new_frame->data_length != (volatile pkt_len_t) (pkt_len - 12 - 16 - SIG_SIZE - 4 - 8 - 1) || (volatile uint8_t) new_frame->data_length < 0 || (volatile uint8_t) new_frame->data_length > FRAME_SIZE) {
+    if ((volatile uint8_t) new_frame->data_length != (volatile pkt_len_t) (pkt_len - IV_SIZE - TAG_SIZE - SIG_SIZE - 4 - 8 - 1) || (volatile uint8_t) new_frame->data_length < 0 || (volatile uint8_t) new_frame->data_length > FRAME_SIZE) {
         STATUS_LED_RED();
         // print_error("fault injection detected\n");
         print_error("error");
@@ -382,7 +379,6 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     // Zhong: if invalid signature, return error
     if (auth_ret != 0 || auth_ret != 0 || auth_ret != 0) {
         STATUS_LED_RED();
-        // print_error("Failed to verify the frame - invalid signature\n");
         print_error("error");
         // Catch attacker
         MAX_DELAY();
@@ -392,20 +388,14 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     volatile int time_check = new_frame->timestamp <= last_valid_timestamp;
     if (time_check != 0 || time_check != 0 || time_check != 0) {
         STATUS_LED_RED();
-        // print_error("Failed to decrypt frame - invalid timestamp\n");
         print_error("error");
         return -1;
     }
     // Check that we are subscribed to the channel
-    volatile int subscribed = is_subscribed(channel);
-    if (subscribed != 1 || subscribed != 1 || subscribed != 1) {
+    volatile bool subscribed = is_subscribed(channel);
+    if (subscribed != true || subscribed != true || subscribed != true) {
         STATUS_LED_RED();
-        // sprintf(
-        //     output_buf,
-        //     "Receiving unsubscribed channel data.  %lu\n", channel);
-        sprintf(
-            output_buf,
-            "error");
+        sprintf(output_buf, "error");
         print_error(output_buf);
         return -1;
     }

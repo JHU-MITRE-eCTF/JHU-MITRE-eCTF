@@ -23,6 +23,9 @@
 #define SIG_SIZE 64 // Ed25519 signature size in bytes
 #define KEY_SIZE 32 // for both AES-GCM and Ed25519
 
+// Zhong: AES_GCM
+#define IV_SIZE 12 
+#define TAG_SIZE 16
 
 // Yi: reference https://github.com/wolfSSL/wolfssl/blob/master/doc/dox_comments/header_files/ed25519.h#L345
 /** @brief Verifies a digital signature using Ed25519

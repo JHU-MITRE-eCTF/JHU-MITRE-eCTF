@@ -60,10 +60,6 @@ int ed25519_authenticate(const byte* sig, const byte* msg, word32 msgSz, const b
     return ret_verify;
 }
 
-// Zhong: AES_GCM
-#define IV_SIZE 12 
-#define AUTH_TAG_SIZE 16
-
 int aes_gcm_decrypt(uint8_t *ciphertext, size_t ciphertext_len,
                      uint8_t *key, uint8_t *iv, uint8_t *tag, uint8_t *plaintext) {
     Aes aes = {0}; // AES-GCM context
@@ -84,7 +80,7 @@ int aes_gcm_decrypt(uint8_t *ciphertext, size_t ciphertext_len,
         return -1;
     }
     volatile int ret_decrypt = wc_AesGcmDecrypt(&aes, plaintext, ciphertext, ciphertext_len,
-                              iv, IV_SIZE, tag, AUTH_TAG_SIZE, NULL, 0);
+                              iv, IV_SIZE, tag, TAG_SIZE, NULL, 0);
     if (ret_decrypt != 0 || ret_decrypt != 0 || ret_decrypt != 0) {
         // The caller has violated the function's contract,
         // the decryption failure after authentication can only be caused by a hardware fault.
