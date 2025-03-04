@@ -357,6 +357,11 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
             decoder_status.subscribed_channels[i].id = update->channel;
             decoder_status.subscribed_channels[i].start_timestamp = update->start_timestamp;
             decoder_status.subscribed_channels[i].end_timestamp = update->end_timestamp;
+            // Zhong: repetition check against fault injection
+            SEC_ASSERT((volatile bool) decoder_status.subscribed_channels[i].active == true \
+             && (volatile channel_id_t) decoder_status.subscribed_channels[i].id == (volatile channel_id_t) update->channel \
+             && (volatile timestamp_t) decoder_status.subscribed_channels[i].start_timestamp == (volatile timestamp_t) update->start_timestamp \
+             && (volatile timestamp_t) decoder_status.subscribed_channels[i].end_timestamp == (volatile timestamp_t) update->end_timestamp);
             // Zhong: Store the channel key
             SECURE_MEMCPY(decoder_status.subscribed_channels[i].channel_key, channel_key, KEY_SIZE);
             secure_wipe(channel_key, KEY_SIZE);
@@ -511,6 +516,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     }
     // Zhong: Update global state after all checks
     last_valid_timestamp = new_frame->timestamp;
+    SEC_ASSERT((volatile timestamp_t) last_valid_timestamp == (volatile timestamp_t) new_frame->timestamp);
 
     // Zhong: Send the decrypted frame to host
     write_packet(DECODE_MSG, decrypted_frame, new_frame->data_length);
