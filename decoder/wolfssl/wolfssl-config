@@ -2,9 +2,9 @@
  
 package="wolfssl"
 version="5.7.6"
-libs="-lwolfssl -lpthread"
+libs="-lwolfssl"
  
-prefix="/usr/local"
+prefix="/path/to/build/wolfssl-arm"
 exec_prefix="${prefix}"
 bindir="${exec_prefix}/bin"
 sbindir="${exec_prefix}/sbin"
@@ -17,8 +17,8 @@ libdir="${exec_prefix}/lib"
 infodir="${datarootdir}/info"
 mandir="${datarootdir}/man"
 includedir="${prefix}/include"
-target="x86_64-pc-linux-gnu"
-host="x86_64-pc-linux-gnu"
+target="arm-non-eabi"
+host="arm-non-eabi"
 build="x86_64-pc-linux-gnu"
  
 if test "$#" -eq 0; then

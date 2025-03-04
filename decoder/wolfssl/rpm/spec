@@ -37,7 +37,7 @@ you will need to install %{name}-devel.
 %setup -q
 
 %build
-%configure  '--enable-ed25519'
+%configure  '--host=arm-non-eabi' 'CC=arm-none-eabi-gcc' 'AR=arm-none-eabi-ar' 'STRIP=arm-none-eabi-strip' 'RANLIB=arm-none-eabi-ranlib' '--prefix=/path/to/build/wolfssl-arm' 'CFLAGS=-march=armv8-a --specs=nosys.specs       -DHAVE_PK_CALLBACKS -DWOLFSSL_USER_IO -DNO_WRITEV -DHAVE_ED25519 -DTIME_T_NOT_64BIT' '--disable-filesystem' '--enable-fastmath' '--disable-shared' 'host_alias=arm-non-eabi'
 %{__make} %{?_smp_mflags}
 if [ "no" = "yes" ]
 then

@@ -25,8 +25,6 @@ ENTRY=firmware_startup
 
 # ****************** eCTF Crypto Example *******************
 PROJ_CFLAGS += -DWOLFSSL_USE_OPTIONS_H
-PROJ_CFLAGS += -DHAVE_ED25519 -DWOLFSSL_SHA512 -DHAVE_AESGCM
-PROJ_CFLAGS += -DWC_RSA_BLINDING -DECC_TIMING_RESISTANT -DTFM_TIMING_RESISTANT
 
 # ****************** STACK PROTECTION AND SECURITY FLAGS ******************
 PROJ_CFLAGS += -D_FORTIFY_SOURCE=3 -fstack-protector-all -mstack-protector-guard=global -Wformat -Wformat-security -Werror=format-security

@@ -20,6 +20,6 @@
  */
 
 #ifndef NO_FILESYSTEM
-    #define CERT_PREFIX "/ectf/JHU-MITRE-eCTF/decoder/wolfssl/"
-    #define CERT_WRITE_TEMP_DIR "/ectf/JHU-MITRE-eCTF/decoder/wolfssl/"
+    #define CERT_PREFIX "/decoder/wolfssl/"
+    #define CERT_WRITE_TEMP_DIR "/decoder/wolfssl/"
 #endif /* NO_FILESYSTEM */

@@ -8,7 +8,7 @@
 #define DEBUG 0
 
 /* Define to 1 if you have the <arpa/inet.h> header file. */
-#define HAVE_ARPA_INET_H 1
+/* #undef HAVE_ARPA_INET_H */
 
 /* Define to 1 if you have the `atexit' function. */
 #define HAVE_ATEXIT 1
@@ -22,11 +22,11 @@
 
 /* Define to 1 if you have the declaration of `getaddrinfo', and to 0 if you
    don't. */
-#define HAVE_DECL_GETADDRINFO 1
+#define HAVE_DECL_GETADDRINFO 0
 
 /* Define to 1 if you have the declaration of `gethostbyname', and to 0 if you
    don't. */
-#define HAVE_DECL_GETHOSTBYNAME 1
+#define HAVE_DECL_GETHOSTBYNAME 0
 
 /* Define to 1 if you have the declaration of `gettimeofday', and to 0 if you
    don't. */
@@ -42,7 +42,7 @@
 
 /* Define to 1 if you have the declaration of `inet_ntoa', and to 0 if you
    don't. */
-#define HAVE_DECL_INET_NTOA 1
+#define HAVE_DECL_INET_NTOA 0
 
 /* Define to 1 if you have the declaration of `memset', and to 0 if you don't.
    */
@@ -50,14 +50,14 @@
 
 /* Define to 1 if you have the declaration of `socket', and to 0 if you don't.
    */
-#define HAVE_DECL_SOCKET 1
+#define HAVE_DECL_SOCKET 0
 
 /* Define to 1 if you have the declaration of `strftime', and to 0 if you
    don't. */
 #define HAVE_DECL_STRFTIME 1
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
-#define HAVE_DLFCN_H 1
+/* #undef HAVE_DLFCN_H */
 
 /* Define to 1 if you have the <errno.h> header file. */
 #define HAVE_ERRNO_H 1
@@ -66,10 +66,10 @@
 #define HAVE_FCNTL_H 1
 
 /* Define to 1 if you have the `getaddrinfo' function. */
-#define HAVE_GETADDRINFO 1
+/* #undef HAVE_GETADDRINFO */
 
 /* Define to 1 if you have the `gethostbyname' function. */
-#define HAVE_GETHOSTBYNAME 1
+/* #undef HAVE_GETHOSTBYNAME */
 
 /* Define to 1 if you have the `gettimeofday' function. */
 #define HAVE_GETTIMEOFDAY 1
@@ -81,7 +81,7 @@
 /* #undef HAVE_GMTIME_S */
 
 /* Define to 1 if you have the `inet_ntoa' function. */
-#define HAVE_INET_NTOA 1
+/* #undef HAVE_INET_NTOA */
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
@@ -112,19 +112,19 @@
 #define HAVE_MEMSET 1
 
 /* Define to 1 if you have the <netdb.h> header file. */
-#define HAVE_NETDB_H 1
+/* #undef HAVE_NETDB_H */
 
 /* Define to 1 if you have the <netinet/in.h> header file. */
-#define HAVE_NETINET_IN_H 1
+/* #undef HAVE_NETINET_IN_H */
 
 /* Define to 1 if you have the <pcap/pcap.h> header file. */
 /* #undef HAVE_PCAP_PCAP_H */
 
 /* Define if you have POSIX threads libraries and header files. */
-#define HAVE_PTHREAD 1
+/* #undef HAVE_PTHREAD */
 
 /* Have PTHREAD_PRIO_INHERIT. */
-#define HAVE_PTHREAD_PRIO_INHERIT 1
+/* #undef HAVE_PTHREAD_PRIO_INHERIT */
 
 /* Define to 1 if you have the <Security/SecCertificate.h> header file. */
 /* #undef HAVE_SECURITY_SECCERTIFICATE_H */
@@ -139,7 +139,7 @@
 /* #undef HAVE_SECURITY_SECTRUST_H */
 
 /* Define to 1 if you have the `socket' function. */
-#define HAVE_SOCKET 1
+/* #undef HAVE_SOCKET */
 
 /* Define to 1 if you have the <stddef.h> header file. */
 #define HAVE_STDDEF_H 1
@@ -160,10 +160,10 @@
 #define HAVE_STRING_H 1
 
 /* Define to 1 if you have the <sys/ioctl.h> header file. */
-#define HAVE_SYS_IOCTL_H 1
+/* #undef HAVE_SYS_IOCTL_H */
 
 /* Define to 1 if you have the <sys/socket.h> header file. */
-#define HAVE_SYS_SOCKET_H 1
+/* #undef HAVE_SYS_SOCKET_H */
 
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #define HAVE_SYS_STAT_H 1
@@ -175,7 +175,7 @@
 #define HAVE_SYS_TYPES_H 1
 
 /* Define to 1 if you have the <sys/un.h> header file. */
-#define HAVE_SYS_UN_H 1
+/* #undef HAVE_SYS_UN_H */
 
 /* Define to 1 if you have the <time.h> header file. */
 #define HAVE_TIME_H 1
@@ -191,7 +191,7 @@
 #define HAVE_VISIBILITY 1
 
 /* Define to 1 if the system has the type `__uint128_t'. */
-#define HAVE___UINT128_T 1
+/* #undef HAVE___UINT128_T */
 
 /* Define to the sub-directory where libtool stores uninstalled libraries. */
 #define LT_OBJDIR ".libs/"
@@ -219,7 +219,7 @@
 /* #undef PTHREAD_CREATE_JOINABLE */
 
 /* The size of `long', as computed by sizeof. */
-#define SIZEOF_LONG 8
+#define SIZEOF_LONG 4
 
 /* The size of `long long', as computed by sizeof. */
 #define SIZEOF_LONG_LONG 8
