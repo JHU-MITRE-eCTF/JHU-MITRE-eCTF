@@ -134,3 +134,22 @@ void get_random_delay_us(uint64_t max_delay_us) {
     uint64_t rand_delay_us = xorshift64(rng_state) % max_delay_us;
     MXC_Delay((uint32_t)rand_delay_us);
 }
+
+
+void disable_i2c() {
+    MXC_GCR->pclkdis0 |= MXC_F_GCR_PCLKDIS0_I2C0;  // Disable I2C0
+    MXC_GCR->pclkdis0 |= MXC_F_GCR_PCLKDIS0_I2C1;  // Disable I2C1
+}
+
+void disable_irq(void) {
+    __disable_irq();  // Disables all interrupts
+    // Disable all individual interrupts that can be disabled
+    for (IRQn_Type irq = 0; irq < MXC_IRQ_EXT_COUNT; irq++) {
+        NVIC_DisableIRQ(irq);  // Disable specific IRQ
+    }
+}
+
+void disable_cache(void) {
+    MXC_ICC0->ctrl &= ~MXC_F_ICC_CTRL_EN;  // Disable Instruction Cache 0
+    MXC_ICC1->ctrl &= ~MXC_F_ICC_CTRL_EN;  // Disable Instruction Cache 1
+}
