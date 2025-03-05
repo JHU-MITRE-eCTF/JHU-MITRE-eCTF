@@ -54,6 +54,14 @@
     } while (0)
 
 /**
+ * @brief Assert but with fault injection protections
+ */
+#define SEC_CHECK(x) do {         \
+     UTIL_ASSERT(x);               \
+     UTIL_ASSERT(x);               \
+} while (0)
+
+/**
  * @brief Assert and working if failed
  */
 #define UTIL_ASSERT(x)             \

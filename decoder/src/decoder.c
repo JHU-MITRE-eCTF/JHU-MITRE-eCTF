@@ -516,7 +516,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     }
     // Zhong: Update global state after all checks
     last_valid_timestamp = new_frame->timestamp;
-    SEC_ASSERT((volatile timestamp_t) last_valid_timestamp == (volatile timestamp_t) new_frame->timestamp);
+    SEC_CHECK((volatile timestamp_t) last_valid_timestamp == (volatile timestamp_t) new_frame->timestamp);
 
     // Zhong: Send the decrypted frame to host
     write_packet(DECODE_MSG, decrypted_frame, new_frame->data_length);
