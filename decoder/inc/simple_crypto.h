@@ -13,8 +13,6 @@
 
 #ifndef ECTF_CRYPTO_H
 #define ECTF_CRYPTO_H
-// #define HAVE_ED25519
-// #define WOLFSSL_SHA512
 
 #include "wolfssl/options.h"
 #include "wolfssl/wolfcrypt/aes.h"
@@ -22,19 +20,12 @@
 #include "wolfssl/wolfcrypt/ed25519.h"
 
 /******************************** MACRO DEFINITIONS ********************************/
-#define BLOCK_SIZE AES_BLOCK_SIZE
-#define HASH_SIZE MD5_DIGEST_SIZE
-
-// Yi: word32 pubkey is 32 bytes and sig is 64 bytes， in wolfssl it defines as word32 format
 #define SIG_SIZE 64 // Ed25519 signature size in bytes
-#define PUB_KEY_SIZE 32 // Ed25519 public key size in bytes
-#define MESSAGE_SIZE 74 // Size of the message in bytes, need to change 
+#define KEY_SIZE 32 // for both AES-GCM and Ed25519
 
 // Zhong: AES_GCM
 #define IV_SIZE 12 
-#define AUTH_TAG_SIZE 16
-#define KEY_SIZE 32
-
+#define TAG_SIZE 16
 
 // Yi: reference https://github.com/wolfSSL/wolfssl/blob/master/doc/dox_comments/header_files/ed25519.h#L345
 /** @brief Verifies a digital signature using Ed25519
@@ -50,8 +41,7 @@
  * @return BAD_FUNC_ARG Returned if any of the input parameters evaluate to NULL, or if the siglen does not match the actual length of a signature.
  * @return SIG_VERIFY_E Returned if verification completes, but the signature generated does not match the signature provided.
  */
-int ed25519_authenticate(const byte* sig, word32 sigSz, const byte* msg, word32 msgSz,
-                 const byte* pubKey, word32 pubKeySz);
+int ed25519_authenticate(const byte* sig, const byte* msg, word32 msgSz, const byte* pubKey);
 
 /** @brief Decrypts ciphertext using AES-GCM
  * 

@@ -17,7 +17,6 @@
 #include <string.h>
 
 
-/******************************** FUNCTION PROTOTYPES ********************************/
 // Yi: reference https://github.com/wolfSSL/wolfssl/blob/master/doc/dox_comments/header_files/ed25519.h#L345
 /** @brief Verifies a digital signature using Ed25519
  *
@@ -32,8 +31,7 @@
  * @return BAD_FUNC_ARG Returned if any of the input parameters evaluate to NULL, or if the siglen does not match the actual length of a signature.
  * @return SIG_VERIFY_E Returned if verification completes, but the signature generated does not match the signature provided.
  */
-int ed25519_authenticate(const byte* sig, word32 sigSz, const byte* msg, word32 msgSz,
-                 const byte* pubKey, word32 pubKeySz) {
+int ed25519_authenticate(const byte* sig, const byte* msg, word32 msgSz, const byte* pubKey) {
     volatile int ret_init = -1;
     volatile int ret_import = -1;
     volatile int ret_verify = -1;
@@ -47,14 +45,14 @@ int ed25519_authenticate(const byte* sig, word32 sigSz, const byte* msg, word32 
         HALT_AND_CATCH_FIRE();
         return -1;
     }
-    ret_import = wc_ed25519_import_public(pubKey, pubKeySz, &myKey);
+    ret_import = wc_ed25519_import_public(pubKey, KEY_SIZE, &myKey);
     if (ret_import != 0 || ret_import != 0 || ret_import != 0) {
         // The caller has violated the function's contract,
         // this can only be caused by a hardware fault.
         HALT_AND_CATCH_FIRE();
         return -1;
     }
-    ret_verify = wc_ed25519_verify_msg(sig, sigSz, msg, msgSz, &result, &myKey);
+    ret_verify = wc_ed25519_verify_msg(sig, SIG_SIZE, msg, msgSz, &result, &myKey);
     if ((volatile int) result != 1 || ret_verify != 0 || ret_verify != 0 || (volatile int) result != 1 || (volatile int) result != 1) {
         return -1;
     }
@@ -82,7 +80,7 @@ int aes_gcm_decrypt(uint8_t *ciphertext, size_t ciphertext_len,
         return -1;
     }
     volatile int ret_decrypt = wc_AesGcmDecrypt(&aes, plaintext, ciphertext, ciphertext_len,
-                              iv, IV_SIZE, tag, AUTH_TAG_SIZE, NULL, 0);
+                              iv, IV_SIZE, tag, TAG_SIZE, NULL, 0);
     if (ret_decrypt != 0 || ret_decrypt != 0 || ret_decrypt != 0) {
         // The caller has violated the function's contract,
         // the decryption failure after authentication can only be caused by a hardware fault.

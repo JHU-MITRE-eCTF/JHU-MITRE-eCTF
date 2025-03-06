@@ -14,21 +14,13 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include "mxc_device.h"
-#include "status_led.h"
-#include "board.h"
-#include "mxc_delay.h"
+#include <stdbool.h>
 #include "simple_flash.h"
 #include "host_messaging.h"
+#include "status_led.h"
 #include "simple_uart.h"
 #include "simple_crypto.h"
-//Liz - mxc_sys and i2c are included to disable unused board functions
-#include "mxc_sys.h"
-#include "i2c.h"
 #include "utils.h"
-#include "nvic_table.h"
-#include "icc_regs.h"
-#include "gcr_regs.h"
 
 /**********************************************************
  ******************* PRIMITIVE TYPES **********************
@@ -46,8 +38,6 @@
 #define MAX_CHANNEL_COUNT 8
 #define EMERGENCY_CHANNEL 0
 #define FRAME_SIZE 64
-#define KEY_SIZE 32
-#define SIGNATURE_SIZE 64
 
 #define DEFAULT_CHANNEL_TIMESTAMP 0xFFFFFFFFFFFFFFFF
 // This is a canary value so we can confirm whether this decoder has booted before
@@ -77,17 +67,14 @@ extern const unsigned char secrets_bin_end[];
 // for more information on what struct padding does, see:
 // https://www.gnu.org/software/c-intro-and-ref/manual/html_node/Structure-Layout.html
 
-// Binary packet format, see:
-// https://jhu-mitre-ectf.atlassian.net/wiki/spaces/BT/pages/3768335/Binary+Data+Format+Specifications
-
 /**
  * @brief The AES_GCM packet type used for frame data.
  * @author Gavin Zhong
  */
 typedef struct {
-    uint8_t nonce[12];
+    uint8_t nonce[IV_SIZE];
     uint8_t ciphertext[FRAME_SIZE]; //for AES_GCM the length of ciphertext is equal to cleartext
-    uint8_t tag[16];
+    uint8_t tag[TAG_SIZE];
 } aes_gcm_packet_frame_t;
 
 /**
@@ -101,7 +88,7 @@ typedef struct {
     uint8_t data_length;
     // body
     aes_gcm_packet_frame_t data;
-    uint8_t signature[SIGNATURE_SIZE];
+    uint8_t signature[SIG_SIZE];
 } frame_packet_t;
 
 /**
@@ -109,9 +96,9 @@ typedef struct {
  * @author Gavin Zhong
  */
 typedef struct {
-    uint8_t nonce[12];
+    uint8_t nonce[IV_SIZE];
     uint8_t ciphertext[KEY_SIZE]; //for AES_GCM the length of ciphertext is equal to cleartext
-    uint8_t tag[16];
+    uint8_t tag[TAG_SIZE];
 } aes_gcm_packet_key_t;
 
 /**
@@ -124,7 +111,7 @@ typedef struct {
     timestamp_t end_timestamp;
     channel_id_t channel;
     aes_gcm_packet_key_t encrypted_channel_key;
-    uint8_t signature[SIGNATURE_SIZE];
+    uint8_t signature[SIG_SIZE];
 } subscription_update_packet_t;
 
 typedef struct {
@@ -163,8 +150,8 @@ typedef struct {
  * @author Liz Grzyb
  */
 typedef struct {
-    uint8_t subscription_key[32];  // AES-256 key for subscription updates
-    uint8_t signature_public_key[32];  // ECC public key for verifying signatures
+    uint8_t subscription_key[KEY_SIZE];  // AES-256 key for subscription updates
+    uint8_t signature_public_key[KEY_SIZE];  // ECC public key for verifying signatures
 } secrets_t;
 
 /**********************************************************
@@ -181,34 +168,6 @@ static timestamp_t last_valid_timestamp = 0;
 /**********************************************************
  ******************* UTILITY FUNCTIONS ********************
  **********************************************************/
-
- /** 
- * @brief disables unused i2c peripheral
- * @author Liz Grzyb
- **/
-void disable_i2c() {
-    MXC_GCR->pclkdis0 |= MXC_F_GCR_PCLKDIS0_I2C0;  // Disable I2C0
-    MXC_GCR->pclkdis0 |= MXC_F_GCR_PCLKDIS0_I2C1;  // Disable I2C1
-}
-/** 
- * @brief disables unused irq peripheral
- * @author Liz Grzyb
- **/
-void disable_irq(void) {
-    __disable_irq();  // Disables all interrupts
-    // Disable all individual interrupts that can be disabled
-    for (IRQn_Type irq = 0; irq < MXC_IRQ_EXT_COUNT; irq++) {
-        NVIC_DisableIRQ(irq);  // Disable specific IRQ
-    }
-}
-/** 
- * @brief disables cache
- * @author Liz Grzyb
- **/
-void disable_cache(void) {
-    MXC_ICC0->ctrl &= ~MXC_F_ICC_CTRL_EN;  // Disable Instruction Cache 0
-    MXC_ICC1->ctrl &= ~MXC_F_ICC_CTRL_EN;  // Disable Instruction Cache 1
-}
 
 /**
  * @brief Loads subscription key, public key from linked object file into the global variable decoder_secrets
@@ -231,18 +190,18 @@ void load_secrets() {
  *  @param channel The channel number to be checked.
  *  @return 1 if the the decoder is subscribed to the channel.  0 if not.
 */
-int is_subscribed(channel_id_t channel) {
+bool is_subscribed(channel_id_t channel) {
     // Check if this is an emergency broadcast message
     if (channel == EMERGENCY_CHANNEL) {
-        return 1;
+        return true;
     }
     // Check if the decoder has has a subscription
     for (int i = 0; i < MAX_CHANNEL_COUNT; i++) {
         if (decoder_status.subscribed_channels[i].id == channel && decoder_status.subscribed_channels[i].active) {
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }
 
 /**********************************************************
@@ -301,7 +260,6 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
 
     if (update->channel == EMERGENCY_CHANNEL) {
         STATUS_LED_RED();
-        // print_error("Failed to update subscription - cannot subscribe to emergency channel\n");
         print_error("error");
         return -1;
     }
@@ -311,13 +269,12 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     volatile int decode_ret = 1;
     
     // Zhong: verify the signature
-    unsigned int message = sizeof(subscription_update_packet_t) - SIGNATURE_SIZE;
-    auth_ret = ed25519_authenticate(update->signature, SIGNATURE_SIZE, (u_int8_t *)update, message,
-                 decoder_secrets.signature_public_key, KEY_SIZE);
+    unsigned int message = sizeof(subscription_update_packet_t) - SIG_SIZE;
+    auth_ret = ed25519_authenticate(update->signature, (u_int8_t *)update, message,
+                 decoder_secrets.signature_public_key);
     // Zhong: if invalid signature, return error
     if (auth_ret != 0 || auth_ret != 0 || auth_ret != 0) {
         STATUS_LED_RED();
-        // print_error("Failed to update subscription - invalid signature\n");
         print_error("error");
         // Catch attacker
         MAX_DELAY();
@@ -328,7 +285,6 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     decode_ret = (DECODER_ID != update->decoder_id);
     if (decode_ret != 0 || decode_ret != 0 || decode_ret != 0) {
         STATUS_LED_RED();
-        // print_error("Failed to update subscription - invalid decoder ID.\n");
         print_error("error");
         // Catch attacker
         MAX_DELAY();
@@ -372,7 +328,6 @@ int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update)
     // If we do not have any room for more subscriptions
     if (i == MAX_CHANNEL_COUNT) {
         STATUS_LED_RED();
-        // print_error("Failed to update subscription - max subscriptions installed\n");
         print_error("error");
         secure_wipe(channel_key, KEY_SIZE);
         return -1;
@@ -407,7 +362,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     volatile int ret = -1;
 
     // Zhong: Input Validation
-    if ((volatile uint8_t) new_frame->data_length != (volatile pkt_len_t) (pkt_len - 12 - 16 - SIGNATURE_SIZE - 4 - 8 - 1) || (volatile uint8_t) new_frame->data_length < 0 || (volatile uint8_t) new_frame->data_length > FRAME_SIZE) {
+    if ((volatile uint8_t) new_frame->data_length != (volatile pkt_len_t) (pkt_len - IV_SIZE - TAG_SIZE - SIG_SIZE - 4 - 8 - 1) || (volatile uint8_t) new_frame->data_length < 0 || (volatile uint8_t) new_frame->data_length > FRAME_SIZE) {
         STATUS_LED_RED();
         // print_error("fault injection detected\n");
         print_error("error");
@@ -418,13 +373,12 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     }
 
     // Zhong: verify the signature; repeated computation against fault injection
-    message_size = pkt_len - SIGNATURE_SIZE;
-    volatile int auth_ret = ed25519_authenticate(new_frame->signature, SIGNATURE_SIZE, (u_int8_t *)new_frame, message_size,
-                 decoder_secrets.signature_public_key, KEY_SIZE);
+    message_size = pkt_len - SIG_SIZE;
+    volatile int auth_ret = ed25519_authenticate(new_frame->signature, (u_int8_t *)new_frame, message_size,
+                 decoder_secrets.signature_public_key);
     // Zhong: if invalid signature, return error
     if (auth_ret != 0 || auth_ret != 0 || auth_ret != 0) {
         STATUS_LED_RED();
-        // print_error("Failed to verify the frame - invalid signature\n");
         print_error("error");
         // Catch attacker
         MAX_DELAY();
@@ -434,20 +388,14 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     volatile int time_check = new_frame->timestamp <= last_valid_timestamp;
     if (time_check != 0 || time_check != 0 || time_check != 0) {
         STATUS_LED_RED();
-        // print_error("Failed to decrypt frame - invalid timestamp\n");
         print_error("error");
         return -1;
     }
     // Check that we are subscribed to the channel
-    volatile int subscribed = is_subscribed(channel);
-    if (subscribed != 1 || subscribed != 1 || subscribed != 1) {
+    volatile bool subscribed = is_subscribed(channel);
+    if (subscribed != true || subscribed != true || subscribed != true) {
         STATUS_LED_RED();
-        // sprintf(
-        //     output_buf,
-        //     "Receiving unsubscribed channel data.  %lu\n", channel);
-        sprintf(
-            output_buf,
-            "error");
+        sprintf(output_buf, "error");
         print_error(output_buf);
         return -1;
     }
@@ -617,8 +565,7 @@ int main(void) {
 
         // Handle decode command
         case DECODE_MSG:
-            STATUS_LED_PURPLE();
-
+            /*STATUS_LED_PURPLE();*/
             decode(pkt_len, (frame_packet_t *)uart_buf);
             break;
 

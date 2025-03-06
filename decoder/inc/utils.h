@@ -102,3 +102,30 @@ void rng_init();
  */
 void get_random_delay_us(uint64_t max_delay_us);
 
+
+#include "board.h"
+#include "mxc_delay.h"
+#include "mxc_device.h"
+#include "mxc_sys.h"
+#include "i2c.h"
+#include "nvic_table.h"
+#include "icc_regs.h"
+#include "gcr_regs.h"
+
+/** 
+ * @brief disables unused i2c peripheral
+ * @author Liz Grzyb
+ **/
+void disable_i2c();
+
+/** 
+ * @brief disables unused irq peripheral
+ * @author Liz Grzyb
+ **/
+void disable_irq(void);
+
+/** 
+ * @brief disables cache
+ * @author Liz Grzyb
+ **/
+void disable_cache(void);
