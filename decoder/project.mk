@@ -27,4 +27,4 @@ ENTRY=firmware_startup
 PROJ_CFLAGS += -DWOLFSSL_USE_OPTIONS_H
 
 # ****************** STACK PROTECTION AND SECURITY FLAGS ******************
-PROJ_CFLAGS += -D_FORTIFY_SOURCE=3 -fstack-protector-strong -mstack-protector-guard=global -Wformat -Wformat-security -Werror=format-security
+PROJ_CFLAGS += -D_FORTIFY_SOURCE=3 -fstack-protector-strong -Wformat -Wformat-security -Werror=format-security

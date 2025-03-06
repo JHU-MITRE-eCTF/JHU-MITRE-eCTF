@@ -190,18 +190,18 @@ void load_secrets() {
  *  @param channel The channel number to be checked.
  *  @return 1 if the the decoder is subscribed to the channel.  0 if not.
 */
-bool is_subscribed(channel_id_t channel) {
+int is_subscribed(channel_id_t channel) {
     // Check if this is an emergency broadcast message
     if (channel == EMERGENCY_CHANNEL) {
-        return true;
+        return 1;
     }
     // Check if the decoder has has a subscription
     for (int i = 0; i < MAX_CHANNEL_COUNT; i++) {
         if (decoder_status.subscribed_channels[i].id == channel && decoder_status.subscribed_channels[i].active) {
-            return true;
+            return 1;
         }
     }
-    return false;
+    return 0;
 }
 
 /**********************************************************
@@ -392,8 +392,8 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
         return -1;
     }
     // Check that we are subscribed to the channel
-    volatile bool subscribed = is_subscribed(channel);
-    if (subscribed != true || subscribed != true || subscribed != true) {
+    volatile int subscribed = is_subscribed(channel);
+    if (subscribed != 1 || subscribed != 1 || subscribed != 1) {
         STATUS_LED_RED();
         sprintf(output_buf, "error");
         print_error(output_buf);
@@ -434,7 +434,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
     }
     // Zhong: Decrypt the encrypted frame
     if (channel == EMERGENCY_CHANNEL) { 
-        SECURE_MEMCPY(decrypted_frame, new_frame->data.ciphertext, new_frame->data_length);
+        memcpy(decrypted_frame, new_frame->data.ciphertext, new_frame->data_length);
     } else {
         ret = aes_gcm_decrypt((uint8_t *)new_frame->data.ciphertext, new_frame->data_length,
                         channel_key, (uint8_t *)new_frame->data.nonce, (uint8_t *)new_frame->data.tag, (uint8_t *)decrypted_frame);
@@ -487,6 +487,8 @@ void init() {
     disable_cache();
     // Zhong: initialize RNG
     rng_init();
+    // Zhong: Add a delay to ensure RNG is ready
+    get_random_delay_us(100);
     // Zhong: Load Secrets
     load_secrets();
 
