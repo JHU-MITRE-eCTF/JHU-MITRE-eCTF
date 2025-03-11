@@ -488,7 +488,7 @@ void init() {
     // Zhong: initialize RNG
     rng_init();
     // Zhong: Add a delay to ensure RNG is ready
-    get_random_delay_us(100);
+    get_random_delay_us(1000);
     // Zhong: Load Secrets
     load_secrets();
 

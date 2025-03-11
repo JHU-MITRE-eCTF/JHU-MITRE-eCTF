@@ -39,7 +39,7 @@ def test_encoder(args):
         Frame(
             random.choice(args.channels),  # pick random channel
             random.randbytes(args.frame_size),  # generate random frame
-            time.time_ns() // 1000,  # generate microsecond timestamp
+            time.time_ns() // 1000 + _,  # generate microsecond timestamp
         )
         for _ in range(nframes)
     ]

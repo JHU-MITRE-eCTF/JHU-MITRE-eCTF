@@ -40,7 +40,7 @@
 #define SECURE_MEMCPY(dst, src, len) do {        \
       memcpy(dst, src, len);                     \
       UTIL_ASSERT(memcmp(dst, src, len) == 0);   \
-      get_random_delay_us(1000);                       \
+      get_random_delay_us_faster(1000);                       \
       UTIL_ASSERT(memcmp(dst, src, len) == 0);   \
     } while (0)
 
@@ -49,7 +49,7 @@
  */
 #define SEC_ASSERT(x) do {         \
      UTIL_ASSERT(x);               \
-     get_random_delay_us(500);          \
+     get_random_delay_us_faster(500);          \
      UTIL_ASSERT(x);               \
     } while (0)
 
@@ -100,7 +100,14 @@ void rng_init();
  * 
  * Delay for a random amount of time between 0 and max_delay_us
  */
-void get_random_delay_us(uint64_t max_delay_us);
+void get_random_delay_us(uint32_t max_delay_us);
+
+/**
+ * @brief Delay for a random amount of time
+ * 
+ * Delay for a random amount of time between 0 and max_delay_us
+ */
+void get_random_delay_us_faster(uint32_t max_delay_us);
 
 
 #include "board.h"

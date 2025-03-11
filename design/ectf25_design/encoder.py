@@ -78,9 +78,6 @@ class Encoder:
             64 bytes: ed25519_signature (sign channel_number+timestamp+ciphertext_length+encrypted_frame)
         """
         ret = struct.pack(f"<IQB12s64s16s64s", channel, timestamp, len(frame), nonce, ciphertext, tag, signature)
-        if DEBUG_MODE:
-            print(f"{channel} {timestamp} {nonce} {ciphertext} {tag} {signature}")
-            print(f"length: {len(ret)}")
         assert ed25519_verify(ret[-64:], ret[:-64], self.sign_key_public) == True, "signature generation error"
         return ret
 
